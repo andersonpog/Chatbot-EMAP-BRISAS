@@ -1,0 +1,4 @@
+Tópicos Discutidos:
+Criação de um GitHub da equipe;
+Pesquisar sobre ferramentas que poderão ser utilizadas durante a execução do projeto;
+Entendimento das etapas avaliativas.
