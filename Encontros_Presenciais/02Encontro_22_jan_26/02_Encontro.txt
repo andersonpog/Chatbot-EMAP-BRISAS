@@ -1,0 +1,5 @@
+Tópicos Discutidos:
+Análise do uso da ferramenta N8N e outras ferramentas de programação 
+Pesquisa sobte Appis não oficiais que conversam com diferentes linguagens
+Criar uma ideia de Telas
+Intalar o N8N em todos os computadores do grupo
