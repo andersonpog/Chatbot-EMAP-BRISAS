@@ -1,0 +1,6 @@
+Tópicos Discutidos:
+9 de março apresentação de 10 a 20% do projeto desenvolvido
+15 de Julho entrega final do projeto
+Foi definida a entrega de um diagrama UML do projeto 
+Dividir a equipe entre pesquisar integração jAVA com a criação de uma automação no whatsapp e qual linguagem conversa melhor com os endpoints. 
+Começar a anotar perguntas para o encontro presencial com a empresa. 
