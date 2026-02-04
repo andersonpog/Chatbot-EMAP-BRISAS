@@ -1,0 +1,3 @@
+Realizar pesquisa sobre viabilidade do Phyton no projeto
+Refinar mais o diagrama UML
+Foi descartado o uso do Java e proposto o uso de Java script
