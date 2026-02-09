@@ -1,7 +1,9 @@
-Quantos agente Humanos são?
-Vai ter interação Humana com o usuário? 
-Vai ser necessário realizar o envio de Arquivos?
-Qual Banco de dados Vocês Utilizam?
+Quantos agentes humanos são?
+Vai ter interação humana com o usuário? 
+Vai ser necessário realizar o envio de arquivos?
+Qual banco de dados vocês utilizam?
 Qual é o volume esperado de mensagens por dia?
 Vocês vão nos fornecer um novo número de Whatsapp?
+Quais dias e horários do ferry boat ficam disponívesi de antemão para alimentar o sistema?
+
 O bot deve ser baseado em botões (árvore de decisão) ou deve usar Inteligência Artificial para entender textos livres?
