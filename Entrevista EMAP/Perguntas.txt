@@ -1,9 +1,13 @@
 Quantos agentes humanos são?
 Vai ter interação humana com o usuário? 
 Vai ser necessário realizar o envio de arquivos?
-Qual banco de dados vocês utilizam?
+Vocês tem preferência por banco de dados?
 Qual é o volume esperado de mensagens por dia?
 Vocês vão nos fornecer um novo número de Whatsapp?
-Quais dias e horários do ferry boat ficam disponívesi de antemão para alimentar o sistema?
-
+Como fica a questão de ferry extra e cancelamento?
+Qual a janela de espera pro usuário responder?
+Hoje vocês já tem uma central que realiza esse tipo de atendimento?
+Como será tratada a fila de espera do ferry boat?
 O bot deve ser baseado em botões (árvore de decisão) ou deve usar Inteligência Artificial para entender textos livres?
+Vocês já tem algum documento com o scrip de mensagens?
+
