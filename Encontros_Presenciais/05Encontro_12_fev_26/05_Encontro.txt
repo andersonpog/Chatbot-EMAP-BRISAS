@@ -1,0 +1,4 @@
+Linguagem de Programação decidida: Typescript
+Foi apresentado o diagrama UML 
+Foram discutidas as perguntas para realizar na reunião com o responsável da EMAP
+Foi passada a orientação de configurarmos o ambiente de programação em todos os computadores do grupo
