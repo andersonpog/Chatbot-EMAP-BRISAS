@@ -1,0 +1,68 @@
+version: '3.9'
+
+services:
+  # --- SEU PROJETO NESTJS (O CÉREBRO) ---
+  api:
+    build: .
+    container_name: chatbot-api
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - evolution-net
+    depends_on:
+      - evolution-api
+
+  # --- EVOLUTION API (O MOTOR DO WHATSAPP) ---
+  evolution-api:
+    container_name: evolution_api
+    image: atendai/evolution-api:v2.1.1
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    networks:
+      - evolution-net
+    volumes:
+      - evolution_instances:/evolution/instances
+
+  # --- BANCO DE DADOS POSTGRES ---
+  postgres:
+    container_name: postgres
+    image: postgres:15
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=PASSWORD
+    networks:
+      - evolution-net
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # --- REDIS (CACHE) ---
+  redis:
+    container_name: redis
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - evolution-net
+    volumes:
+      - evolution_redis:/data
+
+# --- CONFIGURAÇÃO DE INFRAESTRUTURA (REDE E DISCO) ---
+networks:
+  evolution-net:
+    name: evolution-net
+    driver: bridge
+
+volumes:
+  evolution_instances:
+  postgres_data:
+  evolution_redis:
