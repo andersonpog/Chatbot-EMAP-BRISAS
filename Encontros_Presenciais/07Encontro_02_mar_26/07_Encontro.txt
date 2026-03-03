@@ -1,0 +1,4 @@
+Apresentamos o webhook configurado e respondendo
+foi decidido que no próximo encontro apresentaríamos a interface do atendente
+Foram feitas novas perguntas para adicionarmos a reunião com a Emap
+Descobrir como mandar algum arquivo via API
