@@ -1,0 +1,6 @@
+Definimos um horário fixo para todas as nossas próximas reuniões
+Apresentamos a Api Evolution
+Foram levantadas mais questões sobre o funcionamento da aplicação
+-posso atender mais de um número ao mesmo tempo?
+-como sabemos se uma conversa foi finalizada?
+-Como vamos dividir o mesmo chat para setores diferentes?
