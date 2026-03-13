@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend — Painel de Atendimento WhatsApp (EMAP Brisas)
 
-## Getting Started
+Interface web para visualização e organização das mensagens recebidas via WhatsApp, integrada com a [Evolution API](https://github.com/EvolutionAPI/evolution-api).
 
-First, run the development server:
+## Tecnologias
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- [Next.js 16](https://nextjs.org) com App Router
+- [Tailwind CSS v4](https://tailwindcss.com)
+- [Evolution API v2](https://doc.evolution-api.com)
+
+## Configuração
+
+Crie o arquivo `.env.local` na raiz desta pasta com as seguintes variáveis:
+
+```env
+NEXT_PUBLIC_EVOLUTION_API_URL=http://localhost:8080
+NEXT_PUBLIC_EVOLUTION_API_KEY=sua-api-key
+NEXT_PUBLIC_EVOLUTION_INSTANCE=nome-da-instancia
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> **Atenção:** nunca suba o `.env.local` para o repositório. Ele já está no `.gitignore`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Como rodar
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Acesse [http://localhost:3000](http://localhost:3000) no navegador.
 
-To learn more about Next.js, take a look at the following resources:
+## Funcionalidades
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Listagem de conversas agrupadas por contato
+- Exibição de mensagens em ordem cronológica
+- Suporte ao formato de endereçamento LID do WhatsApp
+- Atualização manual via botão de refresh
+- Feedback de carregamento e erros
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estrutura
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+whatsapp-atendimento/
+├── app/
+│   ├── api/messages/route.ts   # Proxy server-side para a Evolution API
+│   ├── layout.tsx
+│   └── page.tsx
+├── AtendimentoWhatsapp.tsx     # Componente principal do painel
+├── .env.local                  # Credenciais locais (não commitado)
+└── .env.local.example          # Modelo de configuração
+```
