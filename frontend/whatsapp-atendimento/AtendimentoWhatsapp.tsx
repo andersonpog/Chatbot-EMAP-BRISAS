@@ -1,35 +1,119 @@
 "use client";
-import { useState, useRef, useEffect, type FC, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, type FC, type ReactNode } from "react";
+
+const EVO_URL = process.env.NEXT_PUBLIC_EVOLUTION_API_URL ?? "";
+const EVO_KEY = process.env.NEXT_PUBLIC_EVOLUTION_API_KEY ?? "";
+const EVO_INSTANCE = process.env.NEXT_PUBLIC_EVOLUTION_INSTANCE ?? "";
 
 type Status = "open" | "pending" | "resolved";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent" }
 
-const contacts: Contact[] = [
-  { id:"1", name:"Maria Silva", phone:"+55 98 99123-4567", lastMsg:"Olá, preciso de ajuda com meu pedido", time:"10:32", unread:3, status:"open", tags:["venda","urgente"] },
-  { id:"2", name:"João Santos", phone:"+55 98 98765-4321", lastMsg:"Obrigado pelo atendimento!", time:"09:45", unread:0, status:"open", tags:["suporte"] },
-  { id:"3", name:"Ana Oliveira", phone:"+55 98 97654-3210", lastMsg:"Quando chega minha encomenda?", time:"Ontem", unread:1, status:"open", tags:["logística"] },
-  { id:"4", name:"Carlos Ferreira", phone:"+55 98 96543-2109", lastMsg:"Vocês trabalham com atacado?", time:"Ontem", unread:0, status:"pending" },
-  { id:"5", name:"Patrícia Lima", phone:"+55 98 95432-1098", lastMsg:"Problema resolvido, obrigada!", time:"25/02", unread:0, status:"resolved" },
-  { id:"6", name:"Roberto Alves", phone:"+55 98 94321-0987", lastMsg:"Preciso trocar o produto", time:"10:05", unread:2, status:"pending", tags:["troca"] },
-];
+// Evolution API types
+interface EvoMsg {
+  id: string;
+  key: {
+    remoteJid: string;
+    fromMe: boolean;
+    id: string;
+    remoteJidAlt?: string;
+    addressingMode?: string;
+  };
+  pushName?: string;
+  message?: {
+    conversation?: string;
+    extendedTextMessage?: { text: string };
+    imageMessage?: { caption?: string };
+    audioMessage?: Record<string, unknown>;
+    videoMessage?: Record<string, unknown>;
+    documentMessage?: { title?: string };
+    stickerMessage?: Record<string, unknown>;
+  };
+  messageType: string;
+  messageTimestamp: number;
+}
 
-const initMsgs: Record<string, Msg[]> = {
-  "1": [
-    { id:"m1", cid:"1", text:"Olá, boa tarde!", time:"10:20", from:"customer" },
-    { id:"m2", cid:"1", text:"Preciso de ajuda com meu pedido #4521", time:"10:21", from:"customer" },
-    { id:"m3", cid:"1", text:"Fiz a compra ontem mas não recebi confirmação", time:"10:22", from:"customer" },
-    { id:"m4", cid:"1", text:"Olá Maria! Boa tarde! Vou verificar seu pedido agora mesmo.", time:"10:30", from:"agent" },
-    { id:"m5", cid:"1", text:"Encontrei seu pedido #4521. A confirmação foi enviada para seu e-mail. Pode verificar na caixa de spam?", time:"10:31", from:"agent" },
-    { id:"m6", cid:"1", text:"Olá, preciso de ajuda com meu pedido", time:"10:32", from:"customer" },
-  ],
-  "2": [
-    { id:"m7", cid:"2", text:"Bom dia! Consegui resolver meu problema.", time:"09:40", from:"customer" },
-    { id:"m8", cid:"2", text:"Que ótimo, João! Fico feliz em saber!", time:"09:42", from:"agent" },
-    { id:"m9", cid:"2", text:"Obrigado pelo atendimento!", time:"09:45", from:"customer" },
-  ],
-  "3": [{ id:"m10", cid:"3", text:"Oi, quando chega minha encomenda?", time:"Ontem 16:30", from:"customer" }],
-};
+function getMsgText(m: EvoMsg): string {
+  const msg = m.message;
+  if (!msg) return "[mensagem]";
+  if (msg.conversation) return msg.conversation;
+  if (msg.extendedTextMessage?.text) return msg.extendedTextMessage.text;
+  if (msg.imageMessage) return msg.imageMessage.caption || "[Imagem]";
+  if (msg.audioMessage) return "[Áudio]";
+  if (msg.videoMessage) return "[Vídeo]";
+  if (msg.documentMessage) return msg.documentMessage.title || "[Documento]";
+  if (msg.stickerMessage) return "[Sticker]";
+  return "[mensagem]";
+}
+
+function fmtTime(ts: number): string {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === yesterday.toDateString()) return "Ontem";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function fmtPhone(jid: string): string {
+  return "+" + jid.split("@")[0];
+}
+
+// Resolve o JID canônico: mensagens LID usam remoteJidAlt como JID real
+function canonicalJid(key: EvoMsg["key"]): string {
+  if (key.addressingMode === "lid" && key.remoteJidAlt) return key.remoteJidAlt;
+  return key.remoteJid;
+}
+
+function buildContactsAndMsgs(records: EvoMsg[]): { contacts: Contact[]; msgs: Record<string, Msg[]> } {
+  const groups = new Map<string, EvoMsg[]>();
+  for (const m of records) {
+    const jid = canonicalJid(m.key);
+    if (jid.endsWith("@g.us")) continue; // ignora grupos
+    if (!groups.has(jid)) groups.set(jid, []);
+    groups.get(jid)!.push(m);
+  }
+
+  const contacts: Contact[] = [];
+  const msgs: Record<string, Msg[]> = {};
+
+  for (const [jid, messages] of groups) {
+    messages.sort((a, b) => a.messageTimestamp - b.messageTimestamp);
+    const last = messages[messages.length - 1];
+    const name = messages.find(m => !m.key.fromMe && m.pushName)?.pushName || fmtPhone(jid);
+    // dedup: mensagens com mesmo key.id podem aparecer duplicadas (LID + standard JID)
+    const seen = new Set<string>();
+    const unique = messages.filter(m => { if (seen.has(m.key.id)) return false; seen.add(m.key.id); return true; });
+
+    contacts.push({
+      id: jid,
+      name,
+      phone: fmtPhone(jid),
+      lastMsg: getMsgText(last),
+      time: fmtTime(last.messageTimestamp),
+      unread: 0,
+      status: "open",
+    });
+
+    msgs[jid] = unique.map(m => ({
+      id: m.key.id,
+      cid: jid,
+      text: getMsgText(m),
+      time: fmtTime(m.messageTimestamp),
+      from: m.key.fromMe ? "agent" : "customer",
+    }));
+  }
+
+  contacts.sort((a, b) => {
+    const aTs = groups.get(a.id)!.at(-1)!.messageTimestamp;
+    const bTs = groups.get(b.id)!.at(-1)!.messageTimestamp;
+    return bTs - aTs;
+  });
+
+  return { contacts, msgs };
+}
 
 const Ico: Record<string, FC<{c?:string;s?:number}>> = {
   Search:({c="#54656f",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
@@ -64,11 +148,47 @@ const Tag:FC<{t:string}> = ({t})=><span className="text-[10px] font-semibold upp
 
 export default function WaAtendimento() {
   const [tab, setTab] = useState<Status>("open");
-  const [sel, setSel] = useState<Contact|null>(null);
+  const [selId, setSelId] = useState<string|null>(null);
   const [q, setQ] = useState("");
   const [inp, setInp] = useState("");
-  const [msgs, setMsgs] = useState(initMsgs);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string|null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  const sel = contacts.find(c => c.id === selId) ?? null;
+
+  const loadMessages = useCallback(async () => {
+    if (!EVO_URL || !EVO_KEY || !EVO_INSTANCE) {
+      setError("Configure NEXT_PUBLIC_EVOLUTION_API_URL, NEXT_PUBLIC_EVOLUTION_API_KEY e NEXT_PUBLIC_EVOLUTION_INSTANCE no .env.local");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${EVO_URL}/chat/findMessages/${EVO_INSTANCE}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: EVO_KEY,
+        },
+        body: JSON.stringify({ where: {}, limit: 500 }),
+      });
+      if (!res.ok) throw new Error(`Evolution API: ${res.status} ${res.statusText}`);
+      const data = await res.json();
+      const records: EvoMsg[] = data?.messages?.records ?? [];
+      const { contacts: c, msgs: m } = buildContactsAndMsgs(records);
+      setContacts(c);
+      setMsgs(m);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao carregar mensagens");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadMessages(); }, [loadMessages]);
 
   const list = contacts.filter(c => c.status===tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q)));
   const cnt = (s:Status) => contacts.filter(c=>c.status===s).length;
@@ -99,7 +219,7 @@ export default function WaAtendimento() {
           <div className="flex-1 flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{backgroundColor:"#f0f2f5",borderColor:"#e9edef"}}>
             <Ico.Search s={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscando por id, nome ou número..." className="flex-1 bg-transparent border-none outline-none text-[13px]" style={{color:"#3b4a54"}}/>
           </div>
-          <B cls="w-8 h-8 rounded-md border border-gray-200" ch={<Ico.Refresh/>}/>
+          <B cls="w-8 h-8 rounded-md border border-gray-200" onClick={loadMessages} ch={<Ico.Refresh/>}/>
         </div>
         <div className="flex" style={{borderBottom:"1px solid #e9edef"}}>
           {tabData.map(([k,label,icon])=>{const on=tab===k;return(
@@ -110,8 +230,11 @@ export default function WaAtendimento() {
           )})}
         </div>
         <div className="flex-1 overflow-y-auto">
-          {list.length===0?<p className="text-center text-[13px] p-6" style={{color:"#8696a0"}}>Nenhum ticket</p>:list.map(c=>(
-            <button key={c.id} onClick={()=>setSel(c)} className="w-full flex items-start gap-3 px-4 py-3 border-none text-left cursor-pointer" style={{fontFamily:"inherit",backgroundColor:sel?.id===c.id?"#f0f2f5":"transparent",borderBottom:"1px solid #f0f2f5"}}>
+          {loading&&<p className="text-center text-[13px] p-6" style={{color:"#8696a0"}}>Carregando...</p>}
+          {error&&<p className="text-center text-[12px] p-4 mx-3 rounded-lg bg-red-50 text-red-500">{error}</p>}
+          {!loading&&!error&&list.length===0&&<p className="text-center text-[13px] p-6" style={{color:"#8696a0"}}>Nenhum ticket</p>}
+          {list.map(c=>(
+            <button key={c.id} onClick={()=>setSelId(c.id)} className="w-full flex items-start gap-3 px-4 py-3 border-none text-left cursor-pointer" style={{fontFamily:"inherit",backgroundColor:sel?.id===c.id?"#f0f2f5":"transparent",borderBottom:"1px solid #f0f2f5"}}>
               <Av n={c.name} sz={46}/>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color:"#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color:"#667781"}}>{c.time}</span></div>
