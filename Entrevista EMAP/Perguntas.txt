@@ -1,20 +1,22 @@
-Quantos agentes humanos são?
-Vai ter interação humana com o usuário? 
-Vai ser necessário realizar o envio de arquivos?
-Vocês tem preferência por banco de dados?
+Hoje vocês já tem uma central que realiza esse tipo de atendimento?
+----atualmente a própria ouvidoria funciona como esse canal e a comunicação é geralmente quem lida com quem quer agendar.
+
+Quantos funcionário vão atuar?Vai ter interação humana com o usuário? 
+----Até agora eles tem uma pessoa que faz a gestão do whatsapp. Eles vão liberar 3 Atendentes
+
+Vai ser necessário o atendente realizar o envio de arquivos?
 Qual é o volume esperado de mensagens por dia?
-Vocês vão nos fornecer um novo número de Whatsapp?
+----10 por dia/50 por semana
+
+Vocês vão nos fornecer um número pra usarmos no Whatsapp?
 Como fica a questão de ferry extra e cancelamento?
 Qual a janela de espera pro usuário responder?
-Hoje vocês já tem uma central que realiza esse tipo de atendimento?
-Como será tratada a fila de espera do ferry boat?
-O bot deve ser baseado em botões (árvore de decisão) ou deve usar Inteligência Artificial para entender textos livres?
-Vocês já tem algum documento com o scrip de mensagens?
+
+Vocês já tem algum documento com o script de mensagens?
 Quais dados sensíveis vamos perguntar pros usuários?
-Qual tempo de espera pra finalizarmos uma conversa?
-
-
-
+O atendimento será apenas em português ou há necessidade de outro idioma?
+Quem define e mantém os horários disponíveis para visitas?
+Quais são os setores responsáveis por cada tipo de manifestação— por e-mail, sistema interno ou outro canal? 
                                                                                                                   
   Perguntas para a Reunião com a EMAP                                                                                                                                                                                                                                                             
 
