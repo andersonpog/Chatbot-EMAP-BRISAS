@@ -1,9 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback, type FC, type ReactNode } from "react";
 
-const EVO_URL = process.env.NEXT_PUBLIC_EVOLUTION_API_URL ?? "";
-const EVO_KEY = process.env.NEXT_PUBLIC_EVOLUTION_API_KEY ?? "";
-const EVO_INSTANCE = process.env.NEXT_PUBLIC_EVOLUTION_INSTANCE ?? "";
+// Chamadas passam pelo proxy Next.js (sem CORS, sem expor credenciais no browser)
 
 type Status = "open" | "pending" | "resolved";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
@@ -160,21 +158,10 @@ export default function WaAtendimento() {
   const sel = contacts.find(c => c.id === selId) ?? null;
 
   const loadMessages = useCallback(async () => {
-    if (!EVO_URL || !EVO_KEY || !EVO_INSTANCE) {
-      setError("Configure NEXT_PUBLIC_EVOLUTION_API_URL, NEXT_PUBLIC_EVOLUTION_API_KEY e NEXT_PUBLIC_EVOLUTION_INSTANCE no .env.local");
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${EVO_URL}/chat/findMessages/${EVO_INSTANCE}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: EVO_KEY,
-        },
-        body: JSON.stringify({ where: {}, limit: 500 }),
-      });
+      const res = await fetch("/api/messages");
       if (!res.ok) throw new Error(`Evolution API: ${res.status} ${res.statusText}`);
       const data = await res.json();
       const records: EvoMsg[] = data?.messages?.records ?? [];
@@ -208,9 +195,9 @@ export default function WaAtendimento() {
     setInp("");
     // 2. Envio real em background — não bloqueia a UI
     try {
-      const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
+      const res = await fetch("/api/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json", apikey: EVO_KEY },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ number: sel.id, text }),
       });
       if (!res.ok) throw new Error(`Evolution: ${res.status}`);
