@@ -7,7 +7,7 @@ const EVO_INSTANCE = process.env.NEXT_PUBLIC_EVOLUTION_INSTANCE ?? "";
 
 type Status = "open" | "pending" | "resolved";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
-interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent" }
+interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
 
 // Evolution API types
 interface EvoMsg {
@@ -194,10 +194,34 @@ export default function WaAtendimento() {
   const cnt = (s:Status) => contacts.filter(c=>c.status===s).length;
   useEffect(()=>{ref.current?.scrollIntoView({behavior:"smooth"})},[sel,msgs]);
 
-  const send = () => {
-    if(!inp.trim()||!sel) return;
-    setMsgs(p=>({...p,[sel.id]:[...(p[sel.id]||[]),{id:`m${Date.now()}`,cid:sel.id,text:inp.trim(),time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}),from:"agent"}]}));
+  const send = async () => {
+    if (!inp.trim() || !sel) return;
+    const text = inp.trim();
+    const msgId = `m${Date.now()}`;
+    const newMsg: Msg = {
+      id: msgId, cid: sel.id, text,
+      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      from: "agent", sending: true,
+    };
+    // 1. Atualização otimista — desenha na tela imediatamente
+    setMsgs(p => ({ ...p, [sel.id]: [...(p[sel.id] || []), newMsg] }));
     setInp("");
+    // 2. Envio real em background — não bloqueia a UI
+    try {
+      const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: EVO_KEY },
+        body: JSON.stringify({ number: sel.id, text }),
+      });
+      if (!res.ok) throw new Error(`Evolution: ${res.status}`);
+      // Marca como enviado (duplo check)
+      setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
+    } catch (e) {
+      console.error("Falha no envio:", e);
+      // Marca a mensagem com erro removendo o flag e adicionando indicação visual
+      setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
+      alert("Erro ao enviar. Verifique se a Evolution está rodando.");
+    }
   };
 
   const tabData:[Status,string,ReactNode][] = [["open","ABERTOS",<Ico.Chat key="c"/>],["pending","PENDENTES",<Ico.Clock key="p"/>],["resolved","RESOLVIDOS",<Ico.Check key="r"/>]];
@@ -263,7 +287,7 @@ export default function WaAtendimento() {
               <div key={m.id} className="flex w-full" style={{justifyContent:m.from==="agent"?"flex-end":"flex-start"}}>
                 <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?"#d9fdd3":"#fff",borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:"0 1px .5px rgba(11,20,26,.08)"}}>
                   <span className="text-sm" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{m.text}</span>
-                  <span className="flex items-center justify-end text-[11px] mt-0.5 ml-2 float-right" style={{color:"#667781"}}>{m.time}{m.from==="agent"&&<Ico.DblChk/>}</span>
+                  <span className="flex items-center justify-end text-[11px] mt-0.5 ml-2 float-right" style={{color:"#667781"}}>{m.time}{m.from==="agent"&&(m.sending ? <Ico.Clock c="#8696a0" s={12}/> : <Ico.DblChk/>)}</span>
                 </div>
               </div>
             ))}<div ref={ref}/>
