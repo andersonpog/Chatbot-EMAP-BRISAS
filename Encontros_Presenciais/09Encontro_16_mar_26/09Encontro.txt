@@ -1,0 +1,7 @@
+Encontro com a Emap para tirar dúvidas a respeito do projeto
+Questões respondidas:
+O número deles faz parte do plano corporativo da empresa
+Quem atualmente realiza essa interface com o usuário é a parte da ouvidoria/comunição através do whatsapp,email e outros meios de comunicação
+foi definido que a Emap nos fornecerá um scritp para direcionar o desenvolvimento do Bot
+Hoje o volume de mensagens no whatsaap exclusivamente da ouvidoria é aproximadamente 200/mês
+O número de whatsapp fica em um único celular onde uma pessoa fica respondendo e fazendo esse gerenciamento de conversas

@@ -1,16 +1,84 @@
-Quantos agentes humanos são?
-Vai ter interação humana com o usuário? 
-Vai ser necessário realizar o envio de arquivos?
-Vocês tem preferência por banco de dados?
+Hoje vocês já tem uma central que realiza esse tipo de atendimento?
+----atualmente a própria ouvidoria funciona como esse canal e a comunicação é geralmente quem lida com quem quer agendar.
+
+Quantos funcionário vão atuar?Vai ter interação humana com o usuário? 
+----Até agora eles tem uma pessoa que faz a gestão do whatsapp. Eles vão liberar 3 Atendentes
+
+Vai ser necessário o atendente realizar o envio de arquivos?
 Qual é o volume esperado de mensagens por dia?
-Vocês vão nos fornecer um novo número de Whatsapp?
+----10 por dia/50 por semana
+
+Vocês vão nos fornecer um número pra usarmos no Whatsapp?
 Como fica a questão de ferry extra e cancelamento?
 Qual a janela de espera pro usuário responder?
-Hoje vocês já tem uma central que realiza esse tipo de atendimento?
-Como será tratada a fila de espera do ferry boat?
-O bot deve ser baseado em botões (árvore de decisão) ou deve usar Inteligência Artificial para entender textos livres?
-Vocês já tem algum documento com o scrip de mensagens?
+
+Vocês já tem algum documento com o script de mensagens?
 Quais dados sensíveis vamos perguntar pros usuários?
-Qual tempo de espera pra finalizarmos uma conversa?
+O atendimento será apenas em português ou há necessidade de outro idioma?
+Quem define e mantém os horários disponíveis para visitas?
+Quais são os setores responsáveis por cada tipo de manifestação— por e-mail, sistema interno ou outro canal? 
+                                                                                                                  
+  Perguntas para a Reunião com a EMAP                                                                                                                                                                                                                                                             
+
+  ---
+  Usuários e Acesso
+
+  1. Como distinguimos um usuário interno de um externo? Existe algum cadastro, matrícula ou lista de números que identifica 
+  funcionários?
+  2. Usuários internos terão acesso a funcionalidades diferentes das dos externos? Se sim, quais?
+  3. O atendimento será apenas em português ou há necessidade de outro idioma?
+
+  ---
+  Agendamento de Visitas
+
+  4. Quem define e mantém os horários disponíveis para visitas? É a equipe interna da EMAP ou a equipe do projeto?
+  5. Qual o prazo mínimo de antecedência para agendar uma visita?
+  6. Existe limite de vagas por horário ou por dia?
+  7. Quais dados do solicitante são obrigatórios para o agendamento (nome, CPF, empresa, finalidade)?
+  8. O agendamento precisa de aprovação humana antes da confirmação, ou a confirmação é automática?
+  9. Como funciona o cancelamento ou reagendamento de uma visita?
+  10. O usuário recebe algum documento (PDF, QR Code) como comprovante, ou a mensagem de texto é suficiente?
+
+  ---
+  Ouvidoria
+
+  11. Quais são os setores responsáveis por cada tipo de manifestação (reclamação, denúncia, elogio, sugestão)?
+  12. Como o setor responsável deve ser notificado ao receber uma manifestação — por e-mail, sistema interno ou outro canal? 
+  13. O usuário poderá consultar o andamento da sua manifestação pelo bot usando o número de protocolo?
+  14. Existe prazo de resposta definido para cada tipo de manifestação?
+  15. As manifestações precisam ser integradas a algum sistema de ouvidoria já existente na EMAP?
+
+  ---
+  Base de Conhecimento e Conteúdo
+
+  16. Vocês têm documentos como normativos, manuais ou portarias que o bot deve consultar para responder às perguntas?
+  17. Quem será responsável por manter o conteúdo atualizado (tarifas, horários, regulamentos) após a entrega?
+  18. Com que frequência as informações de ferry boat, tarifas e serviços costumam mudar?
+  19. Há alguma informação que o bot não deve fornecer por ser sigilosa ou restrita?
+
+  ---
+  Integração com Sistemas Internos
+
+  20. A EMAP possui algum sistema interno (ERP, sistema portuário, sistema de agendamento) que o bot precisará consultar ou  
+  gravar dados?
+  21. Esses sistemas possuem API disponível para integração externa? Se sim, há documentação?
+  22. Será necessário autenticação especial (VPN, token, certificado) para acessar esses sistemas?
+
+  ---
+  Segurança e LGPD
+
+  23. A EMAP possui política de privacidade e proteção de dados (LGPD)? O bot precisará exibir um termo de consentimento?    
+  24. Dados sensíveis dos usuários (CPF, nome, contato) devem ser armazenados pelo bot ou apenas trafegados e descartados?   
+  25. Por quanto tempo os registros de interação devem ser mantidos?
+
+  ---
+  Relatórios e Gestão
+
+  26. Quem vai acessar os relatórios de interação — TI, ouvidoria, diretoria?
+  27. Qual o formato esperado para os relatórios: visualização em painel, exportação em planilha (CSV/Excel) ou outro?       
+  28. Há algum indicador específico que a gestão precisa acompanhar (ex.: volume de agendamentos, tempo médio de atendimento,
+   tipos de ouvidoria)?
+
+  
 
 
