@@ -33,7 +33,13 @@ $ npm install
 
 ## Compile and run the project
 
+
+
 ```bash
+# criar arquivo .env na raiz e preencher os campos
+#DATABASE_URL="postgresql://postgres:PASSWORD@localhost:5432/evolution?schema=public"
+#JWT_SECRET="SUA_CHAVE_SECRETA_AQUI"
+
 # development
 $ npm run start
 
