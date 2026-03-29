@@ -40,6 +40,9 @@ $ npm install
 #DATABASE_URL="postgresql://postgres:PASSWORD@localhost:5432/evolution?schema=public"
 #JWT_SECRET="SUA_CHAVE_SECRETA_AQUI"
 
+# criando a tabela
+# npx typeorm-ts-node-commonjs migration:run -d typeorm.config.ts
+
 # development
 $ npm run start
 
