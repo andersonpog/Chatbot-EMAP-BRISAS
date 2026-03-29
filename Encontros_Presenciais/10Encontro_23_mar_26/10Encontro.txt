@@ -1,0 +1,4 @@
+Foi discutida como seria feita a apresentação do projeto para a brisa
+Foi decidido apresentar a tela do administrador e do login no próximo encontro funcionando com o backend
+Apresentar uma pesquisa da viabilidade de usar inteligência artificial para processar áudios para interpretação de gírias ou jargões.
+Adicionar o símbolo de encerrar atendimento na própria interface do atendente
