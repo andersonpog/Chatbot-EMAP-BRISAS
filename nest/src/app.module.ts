@@ -1,12 +1,19 @@
+import { ConfigModule } from '@nestjs/config';
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { WebhookModule } from './webhook/webhook.module';
-import { EvolutionModule } from './evolution/evolution.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './auth/auth.module';
+import { Funcionario } from './auth/entities/funcionario.entity';
 
 @Module({
-  imports: [WebhookModule, EvolutionModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }), // CARREGA O .ENV PRIMEIRO
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      url: process.env.DATABASE_URL,
+      entities: [Funcionario],
+      synchronize: false,
+    }),
+    AuthModule,
+  ],
 })
 export class AppModule {}
