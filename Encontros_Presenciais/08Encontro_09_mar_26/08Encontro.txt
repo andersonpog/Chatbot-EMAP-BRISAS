@@ -1,0 +1,6 @@
+Questões Levantadas:
+Criar uma rotina ouvindo a quantidade de pessoas na lista de espera pra saber a necessidade de criar um novo atendente
+a lacuna de espera sendo 1h desde a última mensagem enviada
+Adicionar a opção de voltar ao menu principal
+Conectar o nest e o next
+fazer tela do administrativo
