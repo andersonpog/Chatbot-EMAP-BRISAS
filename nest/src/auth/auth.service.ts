@@ -61,6 +61,18 @@ async registrar(nome: string, email: string, senha: string, role: string) {
   return usuarioSemSenha;
 }
 
+  async buscarPorId(id: string) {
+    return this.funcionarioRepository.findOne({ where: { id }, select: ['id', 'nome', 'email', 'role'] });
+  }
+
+  async listar() {
+    const funcionarios = await this.funcionarioRepository.find({
+      select: ['id', 'nome', 'email', 'role', 'createdAt'],
+      order: { createdAt: 'DESC' },
+    });
+    return funcionarios;
+  }
+
   /**
    * Valida as credenciais comparando a senha digitada com o Hash do banco.
    */

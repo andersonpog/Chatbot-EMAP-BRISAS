@@ -5,6 +5,8 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors({ origin: true, credentials: true });
+
   const config = new DocumentBuilder()
     .setTitle('Chatbot EMAP-BRISAS API')
     .setDescription('Documentação das rotas de autenticação e integração com Evolution API')
@@ -15,9 +17,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document); // A rota será http://localhost:3000/api
 
-  await app.listen(3000);
+  const port = process.env.PORT || 3001;
+  await app.listen(port);
 
-  console.log(`🚀 Servidor rodando em: http://localhost:3000`);
-  console.log(`📖 Documentação disponível em: http://localhost:3000/api`);
+  console.log(`🚀 Servidor rodando em: http://localhost:${port}`);
+  console.log(`📖 Documentação disponível em: http://localhost:${port}/api`);
 }
 bootstrap();

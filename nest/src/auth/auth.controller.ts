@@ -25,12 +25,16 @@ async registrar(@Body() body: any) {
   );
 }
 
-  @UseGuards(AuthGuard('jwt')) // <-- O SEGURANÇA ESTÁ NA PORTA!
+  @UseGuards(JwtAuthGuard)
+  @Get('funcionarios')
+  async listar() {
+    return this.authService.listar();
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('perfil')
-  getProfile(@Request() req) {
-    return {
-      message: 'Você acessou uma rota protegida!',
-      usuarioLogado: req.user,
-    };
+  async getProfile(@Request() req) {
+    const user = await this.authService.buscarPorId(req.user.userId);
+    return { usuarioLogado: { ...req.user, nome: user?.nome } };
   }
 }

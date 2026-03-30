@@ -153,7 +153,18 @@ export default function WaAtendimento() {
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
+  const [userName, setUserName] = useState("Atendente");
+  const [userRole, setUserRole] = useState<string>("ATENDENTE");
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(d => {
+      if (d.nome) setUserName(d.nome);
+      if (d.role) setUserRole(d.role);
+    }).catch(() => {});
+  }, []);
+
+  const isAdmin = userRole === "ADMIN";
 
   const sel = contacts.find(c => c.id === selId) ?? null;
 
@@ -218,7 +229,7 @@ export default function WaAtendimento() {
       {/* Sidebar */}
       <aside className="flex flex-col border-r" style={{width:320,minWidth:320,backgroundColor:"#fff",borderColor:"#e9edef"}}>
         <div className="flex items-center justify-between px-4 py-2.5" style={{backgroundColor:"#f0f2f5",borderBottom:"1px solid #e9edef"}}>
-          <span className="font-semibold text-sm" style={{color:"#3b4a54"}}>Marcos Sa ▾</span>
+          <span className="font-semibold text-sm" style={{color:"#3b4a54"}}>{userName} ▾</span>
           <div className="flex gap-0.5">{[Ico.Chat,Ico.Cal,Ico.Home].map((I,i)=><B key={i} cls="p-2 rounded-lg" ch={<I c="#54656f"/>}/>)}</div>
         </div>
         <div className="flex gap-1 px-4 pt-2">
@@ -279,13 +290,19 @@ export default function WaAtendimento() {
               </div>
             ))}<div ref={ref}/>
           </div></div>
-          <div className="px-4 py-2" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec"}}>
-            <div className="flex items-center gap-2 bg-white rounded-lg px-2 py-1">
-              <B cls="p-1.5" ch={<Ico.Emoji/>}/><B cls="p-1.5" ch={<Ico.Clip/>}/>
-              <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Digite aqui..." className="flex-1 bg-transparent border-none outline-none text-sm py-2" style={{color:"#3b4a54"}}/>
-              {inp.trim()?<B onClick={send} cls="p-1.5" ch={<Ico.Send/>}/>:<B cls="p-1.5" ch={<Ico.Mic/>}/>}
+          {isAdmin ? (
+            <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
+              Modo observador — apenas visualização
             </div>
-          </div>
+          ) : (
+            <div className="px-4 py-2" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec"}}>
+              <div className="flex items-center gap-2 bg-white rounded-lg px-2 py-1">
+                <B cls="p-1.5" ch={<Ico.Emoji/>}/><B cls="p-1.5" ch={<Ico.Clip/>}/>
+                <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Digite aqui..." className="flex-1 bg-transparent border-none outline-none text-sm py-2" style={{color:"#3b4a54"}}/>
+                {inp.trim()?<B onClick={send} cls="p-1.5" ch={<Ico.Send/>}/>:<B cls="p-1.5" ch={<Ico.Mic/>}/>}
+              </div>
+            </div>
+          )}
         </>)}
       </main>
     </div>
