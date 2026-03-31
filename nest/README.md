@@ -40,7 +40,22 @@ $ npm install
 #DATABASE_URL="postgresql://postgres:PASSWORD@localhost:5432/evolution?schema=public"
 #JWT_SECRET="SUA_CHAVE_SECRETA_AQUI"
 
-# criando a tabela
+# criando o banco do bot
+# docker exec -it postgres psql -U postgres -d Evolution
+
+# -- 1. Cria o banco de dados para o seu NestJS
+# CREATE DATABASE chatbot_db;
+
+# -- 2. (Opcional) Verifica se o banco foi criado
+# \l
+
+# -- 3. Sai do terminal do Postgres
+# \q
+
+# criando as migrations
+# npx typeorm-ts-node-commonjs migration:generate src/database/migrations/CreateInitialTables -d typeorm.config.ts
+
+# consolidando as migrations
 # npx typeorm-ts-node-commonjs migration:run -d typeorm.config.ts
 
 # development
