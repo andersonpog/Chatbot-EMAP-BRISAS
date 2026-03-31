@@ -14,30 +14,30 @@ export class AuthService {
   ) {}
 
   // Este método roda toda vez que o servidor liga
-// async onModuleInit() {
-//     // ...deve ser usado com 'this' aqui embaixo:
-//     const temAlgumAdmin = await this.funcionarioRepository.findOne({ 
-//     where: { role: 'ADMIN' } 
-//   });
+async onModuleInit() {
+    // ...deve ser usado com 'this' aqui embaixo:
+    const temAlgumAdmin = await this.funcionarioRepository.findOne({ 
+    where: { role: 'ADMIN' } 
+  });
 
-//     if (!temAlgumAdmin) {
-//       console.log('🌱 Seed: Criando Admin Inicial na tabela Funcionarios...');
+    if (!temAlgumAdmin) {
+      console.log('🌱 Seed: Criando Admin Inicial na tabela Funcionarios...');
       
-//       const senhaHasheada = await bcrypt.hash('123456', 10);
+      const senhaHasheada = await bcrypt.hash('123456', 10);
       
-//       const novoAdmin = this.funcionarioRepository.create({
-//         nome: 'Admin Inicial',
-//         email: 'admin@admin.com',
-//         senha: senhaHasheada,
-//         role: 'ADMIN',
-//       });
+      const novoAdmin = this.funcionarioRepository.create({
+        nome: 'Admin Inicial',
+        email: 'admin@admin.com',
+        senha: senhaHasheada,
+        role: 'ADMIN',
+      });
 
-//       await this.funcionarioRepository.save(novoAdmin);
-//       console.log('✅ Admin Inicial criado com sucesso!');
-//     } else {
-//       console.log('✔ Admin já existe na tabela Funcionarios.');
-//     }
-//   }
+      await this.funcionarioRepository.save(novoAdmin);
+      console.log('✅ Admin Inicial criado com sucesso!');
+    } else {
+      console.log('✔ Admin já existe na tabela Funcionarios.');
+    }
+  }
 
   /**
    * Registra um novo funcionarioistrador criptografando a senha antes de salvar.

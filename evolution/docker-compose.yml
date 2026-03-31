@@ -32,11 +32,13 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
+    container_name: pgadmin_container
     networks:
       - evolution-net
     environment:
       - PGADMIN_DEFAULT_EMAIL=EMAIL
-      - PGADMIN_DEFAULT_PASSWORD=PASSWORD  
+      - PGADMIN_DEFAULT_PASSWORD=PASSWORD
+      - PGADMIN_CONFIG_SERVER_MODE=False
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     ports:
