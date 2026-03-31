@@ -1,6 +1,61 @@
 # Chatbot-EMAP-BRISAS
 Projeto de chatbot para a EMAP criado durante o programa de residência BRISAS em parceria com a UEMA e a SOFTEX.
 
+Ficou claro! Você quer manter o padrão visual de documentação técnica que já está usando no projeto da EMAP.
+
+Aqui está o conteúdo organizado exatamente nesse formato:
+
+---
+
+# 🛠️ Guia de Instalação e Banco de Dados - Chatbot EMAP
+
+Este documento descreve os passos técnicos para configurar o ambiente de dados, variáveis de sistema e a estrutura de tabelas via TypeORM para o ecossistema de atendimento.
+
+## 📌 Configuração de Ambiente (`.env`)
+Antes de iniciar o serviço, configure o arquivo de ambiente na raiz do projeto:
+
+| Variável | Exemplo de Valor | Descrição |
+| :--- | :--- | :--- |
+| **DATABASE_URL** | `DATABASE_URL="postgresql://postgres:PASSWORD@localhost:5432/evolution?schema=public"` | String de conexão com o Postgres. |
+| **JWT_SECRET** | `SUA_CHAVE_SECRETA_AQUI` | Chave para criptografia de tokens de acesso. |
+
+---
+
+## 🐘 Gerenciamento do Banco de Dados (Docker)
+Passos para criar a instância do banco de dados necessária para o funcionamento do bot.
+
+### 1. Acesso ao Container
+```bash
+docker exec -it postgres psql -U postgres -d Evolution
+```
+
+### 2. Comandos SQL de Inicialização
+| Ação | Comando SQL / Meta-comando |
+| :--- | :--- |
+| **Criar Banco** | `CREATE DATABASE chatbot_db;` |
+| **Listar Bancos** | `\l` |
+| **Sair** | `\q` |
+
+---
+
+## 🏗️ Migrations e Persistência (TypeORM)
+Comandos para sincronizar as entidades do NestJS com o banco de dados PostgreSQL.
+
+### Gerar Nova Estrutura
+Utilize este comando quando houver alterações nas entidades do código:
+```bash
+npx typeorm-ts-node-commonjs migration:generate src/database/migrations/CreateInitialTables -d typeorm.config.ts
+```
+
+### Aplicar Alterações (Run)
+Utilize este comando para consolidar as tabelas no banco de produção/desenvolvimento:
+```bash
+npx typeorm-ts-node-commonjs migration:run -d typeorm.config.ts
+```
+
+---
+> **Aviso:** Certifique-se de que o container do Postgres esteja em status `Up` antes de rodar as migrations.
+
 # 🚀 Documentação da API - Chatbot EMAP (BRISA/UFMA)
 
 Este documento descreve as rotas disponíveis no backend NestJS para a gestão do sistema de atendimento do Ferry Boat, integrando a **Evolution API** com o banco de dados **chatbot_db**.
