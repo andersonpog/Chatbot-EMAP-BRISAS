@@ -5,7 +5,7 @@ import { lastValueFrom } from 'rxjs';
 @Injectable()
 export class EvolutionService {
   private readonly logger = new Logger(EvolutionService.name);
-  private readonly baseURL = 'http://host.docker.internal:8080'; // Ajustado para o Docker acessar o Windows
+  private readonly baseURL = 'http://localhost:8080'; // Ajustado para o Docker acessar o Windows
   private readonly apiKey = 'chaveiruda'; // Sua chave extraída dos logs
 
   constructor(private readonly httpService: HttpService) {}

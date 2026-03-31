@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { Funcionario } from './auth/entities/funcionario.entity';
+import { EvolutionModule } from './evolution/evolution.module';
+
 
 @Module({
   imports: [
@@ -14,6 +16,7 @@ import { Funcionario } from './auth/entities/funcionario.entity';
       synchronize: false,
     }),
     AuthModule,
+    EvolutionModule,
   ],
 })
 export class AppModule {}

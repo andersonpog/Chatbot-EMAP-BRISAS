@@ -8,7 +8,7 @@ const estadosUsuarios = {};
 export class EvolutionController {
   constructor(private readonly evolutionService: EvolutionService) {}
 
-  @Post('evolution*path')
+  @Post()
   async receberEvento(@Body() payload: any) {
     const { event, data, instance } = payload;
 
