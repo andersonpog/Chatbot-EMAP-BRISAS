@@ -12,7 +12,7 @@ Aqui está o conteúdo organizado exatamente nesse formato:
 Este documento descreve os passos técnicos para configurar o ambiente de dados, variáveis de sistema e a estrutura de tabelas via TypeORM para o ecossistema de atendimento.
 
 ## 📌 Configuração de Ambiente (`.env`)
-Antes de iniciar o serviço, configure o arquivo de ambiente na raiz do projeto:
+Antes de iniciar o serviço, configure o arquivo de ambiente na pasta nest:
 
 | Variável | Exemplo de Valor | Descrição |
 | :--- | :--- | :--- |
