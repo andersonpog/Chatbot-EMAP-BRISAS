@@ -1,107 +1,345 @@
-# Chatbot-EMAP-BRISAS
-Projeto de chatbot para a EMAP criado durante o programa de residência BRISAS em parceria com a UEMA e a SOFTEX.
+# Chatbot EMAP Brisas
 
-Ficou claro! Você quer manter o padrão visual de documentação técnica que já está usando no projeto da EMAP.
-
-Aqui está o conteúdo organizado exatamente nesse formato:
+Sistema de atendimento via WhatsApp para a EMAP (Empresa Maranhense de Administração Portuária), desenvolvido durante o programa de residência **BRISAS** em parceria com a UEMA e a SOFTEX.
 
 ---
 
-# 🛠️ Guia de Instalação e Banco de Dados - Chatbot EMAP
+## 📐 Arquitetura
 
-Este documento descreve os passos técnicos para configurar o ambiente de dados, variáveis de sistema e a estrutura de tabelas via TypeORM para o ecossistema de atendimento.
+```
+┌─────────────────────────────────────────────────────────┐
+│                      Frontend (Next.js)                  │
+│  /login  │  /admin (Dashboard, Usuários)  │  /atendimento│
+└───────────────────────┬─────────────────────────────────┘
+                        │ HTTP (proxy interno)
+┌───────────────────────▼─────────────────────────────────┐
+│                   Backend (NestJS)                       │
+│       /auth    │   /atendimento   │   /webhook           │
+└──────────┬────────────────────────────────┬─────────────┘
+           │                                │
+    ┌──────▼──────┐                 ┌───────▼───────┐
+    │  PostgreSQL  │                 │ Evolution API │
+    │  (Docker)   │                 │  (WhatsApp)   │
+    └─────────────┘                 └───────────────┘
+```
 
-## 📌 Configuração de Ambiente (`.env`)
-Antes de iniciar o serviço, configure o arquivo de ambiente na pasta nest:
-
-| Variável | Exemplo de Valor | Descrição |
+| Serviço | Porta | Descrição |
 | :--- | :--- | :--- |
-| **DATABASE_URL** | `DATABASE_URL="postgresql://postgres:PASSWORD@localhost:5432/evolution?schema=public"` | String de conexão com o Postgres. |
-| **JWT_SECRET** | `SUA_CHAVE_SECRETA_AQUI` | Chave para criptografia de tokens de acesso. |
+| Frontend (Next.js) | `3000` | Painel web de atendimento |
+| Backend (NestJS) | `3001` | API REST + lógica do chatbot |
+| Evolution API | `8080` | Gateway WhatsApp |
+| PostgreSQL | `5432` | Banco de dados |
 
 ---
 
-## 🐘 Gerenciamento do Banco de Dados (Docker)
-Passos para criar a instância do banco de dados necessária para o funcionamento do bot.
+## ✅ Pré-requisitos
 
-### 1. Acesso ao Container
+- [Node.js](https://nodejs.org) v18+
+- [Docker](https://docker.com) e Docker Compose
+- [Git](https://git-scm.com)
+
+---
+
+## 🚀 Instalação e Configuração
+
+### 1. Clonar o repositório
+
 ```bash
-docker exec -it postgres psql -U postgres -d Evolution
+git clone https://github.com/seu-usuario/Chatbot-EMAP-BRISAS.git
+cd Chatbot-EMAP-BRISAS
 ```
 
-### 2. Comandos SQL de Inicialização
-| Ação | Comando SQL / Meta-comando |
+### 2. Subir os containers Docker
+
+```bash
+cd evolution
+docker compose up -d
+```
+
+Isso inicia os serviços: **PostgreSQL**, **Evolution API** e **Redis**.
+
+### 3. Configurar o Backend (NestJS)
+
+```bash
+cd nest
+npm install
+```
+
+Crie o arquivo `.env` na pasta `nest/`:
+
+```env
+DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5432/evolution
+JWT_SECRET=sua-chave-secreta-forte-aqui
+PORT=3001
+```
+
+> ⚠️ Nunca versione o arquivo `.env`. Gere um JWT_SECRET seguro com:
+> ```bash
+> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+> ```
+
+Executar as migrations:
+
+```bash
+npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli migration:run -d typeorm.config.ts
+```
+
+Iniciar o servidor:
+
+```bash
+npm run start:dev
+```
+
+### 4. Configurar o Frontend (Next.js)
+
+```bash
+cd frontend/whatsapp-atendimento
+npm install
+```
+
+Crie o arquivo `.env.local` na pasta `frontend/whatsapp-atendimento/`:
+
+```env
+NESTJS_API_URL=http://localhost:3001
+EVOLUTION_API_URL=http://localhost:8080
+EVOLUTION_API_KEY=sua-chave-evolution
+EVOLUTION_INSTANCE=nome-da-instancia
+JWT_SECRET=sua-chave-secreta-forte-aqui
+```
+
+> O `JWT_SECRET` deve ser idêntico ao do backend.
+
+Iniciar o servidor:
+
+```bash
+npm run dev
+```
+
+Acesse: [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 🔐 Acesso inicial
+
+Na primeira inicialização, o sistema verifica se existe algum administrador cadastrado. Caso não exista, **um administrador padrão é criado automaticamente com credenciais definidas no código**.
+
+> ⚠️ **ATENÇÃO — Antes de ir para produção:**
+> - Altere imediatamente as credenciais do administrador padrão pelo painel `/admin/usuarios`
+> - Considere remover o seed automático em `nest/src/auth/auth.service.ts` e criar o primeiro admin manualmente via endpoint `POST /auth/registrar`
+> - Nunca deixe credenciais padrão ativas em ambiente público
+
+---
+
+## 🖥️ Frontend — Funcionalidades
+
+### Tela de Login (`/login`)
+
+- Autenticação com e-mail e senha
+- JWT armazenado em cookie `httpOnly` (seguro, não acessível por JavaScript)
+- Redirecionamento automático conforme o perfil:
+  - **ADMIN** → `/admin/dashboard`
+  - **ATENDENTE** → `/atendimento`
+
+---
+
+### Painel Administrativo (`/admin`)
+
+Acessível apenas para usuários com perfil **ADMIN**.
+
+#### Dashboard (`/admin/dashboard`)
+
+Visão geral do sistema com 4 cards de métricas:
+
+| Card | Descrição |
 | :--- | :--- |
-| **Criar Banco** | `CREATE DATABASE chatbot_db;` |
-| **Listar Bancos** | `\l` |
-| **Sair** | `\q` |
+| Total de usuários | Quantidade total de funcionários cadastrados |
+| Usuários ativos | Funcionários com status `ativo = true` |
+| Administradores | Usuários com perfil ADMIN |
+| Atendentes | Usuários com perfil ATENDENTE |
 
 ---
 
-## 🏗️ Migrations e Persistência (TypeORM)
-Comandos para sincronizar as entidades do NestJS com o banco de dados PostgreSQL.
+#### Usuários (`/admin/usuarios`)
 
-### Gerar Nova Estrutura
-Utilize este comando quando houver alterações nas entidades do código:
+Gerenciamento completo de funcionários do sistema.
+
+**Funcionalidades:**
+
+- **Busca** em tempo real por nome ou e-mail
+- **Criar usuário** via modal (nome, e-mail, senha, perfil)
+- **Editar usuário** — altera nome e perfil (e-mail não editável)
+- **Desativar / Reativar** — toggle de status com confirmação
+- **Status visual** — badge "Ativo" (verde) ou "Inativo" (vermelho)
+- Linhas de usuários inativos exibidas com opacidade reduzida
+
+**Perfis disponíveis:**
+
+| Perfil | Descrição |
+| :--- | :--- |
+| `ATENDENTE` | Acessa apenas a tela de atendimento |
+| `ADMIN` | Acessa o painel administrativo completo |
+
+---
+
+### Tela de Atendimento (`/atendimento`)
+
+Interface principal de atendimento ao cliente via WhatsApp.
+
+**Funcionalidades:**
+
+- Lista de conversas com busca por nome ou número
+- Abas: **Abertos**, **Pendentes**, **Resolvidos**
+- Histórico completo de mensagens por contato
+- Envio de mensagens em tempo real (atualização otimista — aparece na tela antes da confirmação da API)
+- Indicador de status de envio (relógio = enviando, duplo check = entregue)
+
+**Fila de atendimento integrada:**
+
+Quando um cliente é encaminhado pelo robô para atendimento humano, aparece automaticamente na tela:
+
+| Status | Badge | Ação disponível |
+| :--- | :--- | :--- |
+| `AGUARDANDO` | Amarelo — "Aguardando" | Botão **Assumir** |
+| `EM_ATENDIMENTO` | Azul — "Em atendimento" | Botão **Finalizar** |
+
+- **Assumir** — marca o ticket como `EM_ATENDIMENTO` (robô silencia para aquele usuário)
+- **Finalizar** — marca como `FINALIZADO` (robô volta a responder o usuário)
+- A fila atualiza automaticamente a cada **8 segundos**
+
+**Modo Observador (ADMIN):**
+
+Administradores acessam a tela de atendimento em modo somente leitura:
+- Visualizam todas as conversas e status da fila
+- **Não** podem enviar mensagens
+- **Não** podem assumir ou finalizar tickets
+- Exibe mensagem: *"Modo observador — apenas visualização"*
+
+---
+
+## 🔌 API Backend — Referência
+
+**Base URL:** `http://localhost:3001`
+**Autenticação:** `Bearer Token` (JWT) no header `Authorization`
+
+---
+
+### 🔐 Autenticação (`/auth`)
+
+| Método | Rota | Body | Descrição | Token? |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/auth/login` | `{"email":"...","senha":"..."}` | Retorna o `access_token` JWT | Não |
+| `POST` | `/auth/registrar` | `{"nome":"...","email":"...","senha":"...","role":"ATENDENTE"}` | Cria novo funcionário | **Sim** |
+| `GET` | `/auth/funcionarios` | — | Lista todos os funcionários | **Sim** |
+| `PATCH` | `/auth/funcionarios/:id` | `{"nome":"...","role":"...","active":true}` | Atualiza dados ou status do funcionário | **Sim** |
+| `GET` | `/auth/perfil` | — | Retorna dados do usuário autenticado | **Sim** |
+
+---
+
+### 🚢 Fila de Atendimento (`/atendimento`)
+
+| Método | Rota | Parâmetros | Descrição | Token? |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/atendimento/fila` | — | Lista tickets com status `AGUARDANDO` ou `EM_ATENDIMENTO` | **Sim** |
+| `PATCH` | `/atendimento/assumir/:id` | `:id` | Muda status para `EM_ATENDIMENTO` | **Sim** |
+| `PATCH` | `/atendimento/finalizar/:id` | `:id` | Muda status para `FINALIZADO`, libera o robô | **Sim** |
+
+---
+
+### 🤖 Webhook Evolution API (`/webhook`)
+
+| Método | Rota | Descrição | Token? |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/webhook` | Recebe eventos do WhatsApp (mensagens recebidas) e executa a lógica do chatbot | Não |
+
+---
+
+## 🗄️ Banco de Dados
+
+### Tabelas principais
+
+| Tabela | Descrição |
+| :--- | :--- |
+| `Funcionarios` | Usuários do sistema (atendentes e admins) |
+| `atendimentos` | Fila de atendimento humano |
+
+### Estrutura — `Funcionarios`
+
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `id` | UUID | Identificador único |
+| `nome` | varchar | Nome do funcionário |
+| `email` | varchar (unique) | E-mail de acesso |
+| `senha` | varchar | Senha criptografada (bcrypt) |
+| `role` | varchar | `ADMIN` ou `ATENDENTE` |
+| `active` | boolean | Status ativo/inativo (padrão: `true`) |
+| `createdAt` | timestamp | Data de criação |
+
+### Estrutura — `atendimentos`
+
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `id` | serial | Identificador único |
+| `remoteJid` | varchar | ID do WhatsApp do cliente |
+| `nome` | varchar | Nome do cliente |
+| `status` | varchar | `AGUARDANDO`, `EM_ATENDIMENTO` ou `FINALIZADO` |
+| `dataCriacao` | timestamp | Data de entrada na fila |
+
+---
+
+## 🏗️ Migrations (TypeORM)
+
+Todos os comandos devem ser executados dentro da pasta `nest/`.
+
+**Gerar nova migration** (após alterar entidades):
+
 ```bash
-npx typeorm-ts-node-commonjs migration:generate src/database/migrations/CreateInitialTables -d typeorm.config.ts
+npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli migration:generate src/database/migrations/NomeDaMigration -d typeorm.config.ts
 ```
 
-### Aplicar Alterações (Run)
-Utilize este comando para consolidar as tabelas no banco de produção/desenvolvimento:
+**Aplicar migrations pendentes:**
+
 ```bash
-npx typeorm-ts-node-commonjs migration:run -d typeorm.config.ts
+npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli migration:run -d typeorm.config.ts
+```
+
+> ⚠️ Certifique-se de que o container do PostgreSQL está rodando (`docker compose up -d`) antes de executar migrations.
+
+---
+
+## 🐘 Comandos Docker úteis
+
+```bash
+# Iniciar todos os serviços
+docker compose up -d
+
+# Verificar status dos containers
+docker compose ps
+
+# Acessar o banco de dados
+docker compose exec postgres psql -U postgres -d evolution
+
+# Ver logs da Evolution API
+docker compose logs -f evolution_api
+
+# Parar todos os serviços
+docker compose down
 ```
 
 ---
-> **Aviso:** Certifique-se de que o container do Postgres esteja em status `Up` antes de rodar as migrations.
 
-# 🚀 Documentação da API - Chatbot EMAP (BRISA/UFMA)
+## 📖 Documentação interativa da API (Swagger)
 
-Este documento descreve as rotas disponíveis no backend NestJS para a gestão do sistema de atendimento do Ferry Boat, integrando a **Evolution API** com o banco de dados **chatbot_db**.
+Com o backend rodando, acesse:
 
-## 📌 Configurações de Acesso
-* **Base URL:** `http://localhost:3001`
-* **Content-Type:** `application/json`
-* **Autenticação:** `Bearer Token` (JWT)
+```
+http://localhost:3001/api
+```
 
 ---
 
-## 🔐 Módulo de Autenticação (`/auth`)
-Gerencia o acesso dos funcionários e administradores ao sistema de São Luís.
 
-| Método | Rota | Body JSON (Exemplo) | Descrição | Requer Token? |
-| :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/auth/login` | `{"email": "admin@email.com", "senha": "123"}` | Retorna o `access_token` para acesso às demais rotas. | Não |
-| **POST** | `/auth/registrar` | `{"nome": "Anderson", "email": "anderson@email.com", "senha": "123", "role": "admin"}` | Cria um novo funcionário no banco. | **Sim** |
-| **GET** | `/auth/perfil` | *Nenhum* | Retorna os dados do usuário autenticado no momento. | **Sim** |
-| **GET** | `/auth/funcionarios` | *Nenhum* | Lista todos os funcionários cadastrados no sistema. | **Sim** |
+## 🏛️ Sobre o Projeto
 
----
-
-## 🚢 Módulo de Atendimento e Fila (`/atendimento`)
-Controla o fluxo de transbordo entre o Robô e o Atendimento Humano.
-
-| Método | Rota | Parâmetros | Descrição | Requer Token? |
-| :--- | :--- | :--- | :--- | :--- |
-| **GET** | `/atendimento/fila` | *Nenhum* | Retorna a lista de passageiros com status `AGUARDANDO` ou `EM_ATENDIMENTO`. | **Sim** |
-| **PATCH** | `/atendimento/assumir/:id` | `:id` (ID do banco) | Altera o status para `EM_ATENDIMENTO` (O robô continua em silêncio). | **Sim** |
-| **PATCH** | `/atendimento/finalizar/:id` | `:id` (ID do banco) | Define como `FINALIZADO`. O robô volta a responder este usuário. | **Sim** |
-
----
-
-## 🤖 Módulo de Webhook (`/webhook`)
-Ponto de entrada para as mensagens vindas da Evolution API.
-
-| Método | Rota | Body JSON (Simulação de Teste) | Descrição | Requer Token? |
-| :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/webhook` | Ver exemplo abaixo | Processa a lógica de menus e insere usuários na fila de espera. | Não |
-
-## 🛠 Instruções de Teste (Postman)
-Obter Token: Execute a rota POST /auth/login. Copie o valor de access_token.
-
-Autorizar: Nas rotas protegidas, vá na aba Auth, selecione Bearer Token e cole o valor copiado.
-
-Verifique se o registro apareceu em GET /atendimento/fila.
-
-Finalize o atendimento com o ID retornado para liberar o robô novamente.
+Desenvolvido durante o **Programa de Residência BRISAS**
+Parceria: **UEMA × SOFTEX**
+Cliente: **EMAP — Empresa Maranhense de Administração Portuária**
