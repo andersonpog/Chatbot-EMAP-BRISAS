@@ -45,9 +45,10 @@ Sistema de atendimento via WhatsApp para a EMAP (Empresa Maranhense de Administr
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/Chatbot-EMAP-BRISAS.git
+git clone https://github.com/andersonpog/Chatbot-EMAP-BRISAS.git
 cd Chatbot-EMAP-BRISAS
 ```
+OBS:MUDAR AS AUTHENTICATION_API_KEY E A SENHA DO POSTGRES NO ARQUIVO .env da evolution
 
 ### 2. Subir os containers Docker
 
@@ -57,6 +58,16 @@ docker compose up -d
 ```
 
 Isso inicia os serviços: **PostgreSQL**, **Evolution API** e **Redis**.
+### 2.1. Configurando a evolution
+1-Entre em http://localhost:8080/manager/
+2-Clique em criar uma nova instancia no canto superior direito
+3-Na janela dê um nome da sua escolha para instância, deixe como Baileys.
+4-Clique em settings em cima da instancia criada 
+5-Dentro da instancia clique em get QR CODE e conecte o whatsapp 
+6-Assim que o whatsap estiver conectado, entre na aba eventos e depois em webhook no menu lateral esquerdo.
+7-Clicar em ativar o enabled
+8- http://host.docker.internal:3001/webhook colocar esse link na URL 
+9- ativar o MESSAGES_UPSERT,PRESENCE_UPDATE E CONNECTION_UPDATE em Events. No fim da página salve as alterações.
 
 ### 3. Configurar o Backend (NestJS)
 
@@ -68,7 +79,7 @@ npm install
 Crie o arquivo `.env` na pasta `nest/`:
 
 ```env
-DATABASE_URL=postgresql://postgres:SUA_SENHA@localhost:5432/evolution
+DATABASE_URL=postgresql://postgres:PASSWORD@localhost:5432/chatbot_db?schema=public
 JWT_SECRET=sua-chave-secreta-forte-aqui
 PORT=3001
 ```
@@ -77,6 +88,24 @@ PORT=3001
 > ```bash
 > node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 > ```
+
+
+## 🐘 Gerenciamento do Banco de Dados (Docker)
+Passos para criar a instância do banco de dados necessária para o funcionamento do bot.
+
+### 1. Acesso ao Container
+```bash
+docker exec -it postgres psql -U postgres
+```
+
+### 2. Comandos SQL de Inicialização
+| Ação | Comando SQL / Meta-comando |
+| :--- | :--- |
+| **Criar Banco** | `CREATE DATABASE chatbot_db;` |
+| **Listar Bancos** | `\l` |
+| **Sair** | `\q` |
+
+---
 
 Executar as migrations:
 
