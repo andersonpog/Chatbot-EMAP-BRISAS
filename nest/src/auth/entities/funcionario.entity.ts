@@ -17,6 +17,9 @@ export class Funcionario {
   @Column({ default: 'ATENDENTE' })
   role: string;
 
+  @Column({ default: true })
+  active: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

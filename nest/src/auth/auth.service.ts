@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, OnModuleInit } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Funcionario } from './entities/funcionario.entity';
@@ -67,10 +67,19 @@ async registrar(nome: string, email: string, senha: string, role: string) {
 
   async listar() {
     const funcionarios = await this.funcionarioRepository.find({
-      select: ['id', 'nome', 'email', 'role', 'createdAt'],
+      select: ['id', 'nome', 'email', 'role', 'active', 'createdAt'],
       order: { createdAt: 'DESC' },
     });
     return funcionarios;
+  }
+
+  async atualizar(id: string, dados: { nome?: string; role?: string; active?: boolean }) {
+    const usuario = await this.funcionarioRepository.findOne({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuário não encontrado');
+    Object.assign(usuario, dados);
+    const salvo = await this.funcionarioRepository.save(usuario);
+    const { senha: _, ...sem } = salvo;
+    return sem;
   }
 
   /**

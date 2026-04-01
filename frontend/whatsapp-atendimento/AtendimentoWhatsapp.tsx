@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback, type FC, type ReactNode } fro
 type Status = "open" | "pending" | "resolved";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
+interface FilaItem { id: number; remoteJid: string; nome: string; status: "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string }
 
 // Evolution API types
 interface EvoMsg {
@@ -155,6 +156,7 @@ export default function WaAtendimento() {
   const [error, setError] = useState<string|null>(null);
   const [userName, setUserName] = useState("Atendente");
   const [userRole, setUserRole] = useState<string>("ATENDENTE");
+  const [fila, setFila] = useState<FilaItem[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -187,6 +189,37 @@ export default function WaAtendimento() {
   }, []);
 
   useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  const loadFila = useCallback(async () => {
+    try {
+      const res = await fetch("/api/atendimento");
+      if (res.ok) setFila(await res.json());
+    } catch { /* silencioso */ }
+  }, []);
+
+  useEffect(() => {
+    loadFila();
+    const t = setInterval(loadFila, 8000);
+    return () => clearInterval(t);
+  }, [loadFila]);
+
+  const filaDoContato = (jid: string) => fila.find(f => f.remoteJid === jid) ?? null;
+
+  const assumir = async (item: FilaItem) => {
+    await fetch(`/api/atendimento/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "assumir" }),
+    });
+    loadFila();
+  };
+
+  const finalizar = async (item: FilaItem) => {
+    await fetch(`/api/atendimento/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "finalizar" }),
+    });
+    loadFila();
+  };
 
   const list = contacts.filter(c => c.status===tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q)));
   const cnt = (s:Status) => contacts.filter(c=>c.status===s).length;
@@ -261,6 +294,7 @@ export default function WaAtendimento() {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color:"#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color:"#667781"}}>{c.time}</span></div>
                 <div className="flex justify-between items-center"><span className="text-[13px] truncate max-w-[170px]" style={{color:"#667781"}}>{c.lastMsg}</span>{c.unread>0&&<span className="w-5 h-5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{c.unread}</span>}</div>
+                {(() => { const t = filaDoContato(c.id); if (!t) return null; return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:t.status==="AGUARDANDO"?"#fff3cd":"#d1ecf1",color:t.status==="AGUARDANDO"?"#856404":"#0c5460"}}>{t.status==="AGUARDANDO"?"Aguardando":"Em atendimento"}</span></div>; })()}
                 {c.tags&&<div className="flex gap-1 mt-1">{c.tags.map(t=><Tag key={t} t={t}/>)}</div>}
               </div>
             </button>
@@ -278,7 +312,27 @@ export default function WaAtendimento() {
         ):(<>
           <div className="flex items-center justify-between px-4 py-2" style={{backgroundColor:"#f0f2f5",borderBottom:"1px solid #e2e8ec",minHeight:56}}>
             <div className="flex items-center gap-3"><Av n={sel.name}/><div><div className="font-semibold text-[15px]" style={{color:"#111b21"}}>{sel.name}</div><div className="text-xs" style={{color:"#667781"}}>{sel.phone}</div></div></div>
-            <div className="flex items-center gap-1">{sel.tags?.map(t=><Tag key={t} t={t}/>)}<B cls="p-2" ch={<Ico.Phone/>}/><B cls="p-2" ch={<Ico.Search/>}/><B cls="p-2" ch={<Ico.Dots/>}/></div>
+            <div className="flex items-center gap-2">
+              {sel.tags?.map(t=><Tag key={t} t={t}/>)}
+              {(() => {
+                const ticket = filaDoContato(sel.id);
+                if (!ticket) return null;
+                if (ticket.status === "AGUARDANDO") return (
+                  <span style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{background:"#fff3cd",color:"#856404",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Aguardando</span>
+                    {!isAdmin && <button onClick={()=>assumir(ticket)} style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Assumir</button>}
+                  </span>
+                );
+                if (ticket.status === "EM_ATENDIMENTO") return (
+                  <span style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{background:"#d1ecf1",color:"#0c5460",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento</span>
+                    {!isAdmin && <button onClick={()=>finalizar(ticket)} style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Finalizar</button>}
+                  </span>
+                );
+                return null;
+              })()}
+              <B cls="p-2" ch={<Ico.Phone/>}/><B cls="p-2" ch={<Ico.Search/>}/><B cls="p-2" ch={<Ico.Dots/>}/>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto px-[60px] py-4"><div className="max-w-[780px] mx-auto flex flex-col gap-1">
             {(msgs[sel.id]||[]).map(m=>(

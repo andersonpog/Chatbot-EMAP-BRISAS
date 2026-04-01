@@ -1,8 +1,9 @@
 "use client";
 import { useRouter, usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 const navItems = [
+  { label: "Dashboard", href: "/admin/dashboard", icon: "📊" },
   { label: "Usuários", href: "/admin/usuarios", icon: "👥" },
   { label: "Atendimento", href: "/atendimento", icon: "💬" },
 ];
@@ -10,6 +11,11 @@ const navItems = [
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [userName, setUserName] = useState("N");
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(d => { if (d.nome) setUserName(d.nome); }).catch(() => {});
+  }, []);
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -36,11 +42,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </button>
           ))}
         </nav>
-        <div style={{ padding: "12px 8px", borderTop: "1px solid rgba(255,255,255,0.15)" }}>
-          <button onClick={logout}
-            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", backgroundColor: "transparent", border: "none", borderRadius: 8, color: "rgba(255,255,255,0.8)", fontSize: 14, cursor: "pointer" }}>
-            🚪 Sair
-          </button>
+        <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+            {userName.charAt(0).toUpperCase()}
+          </div>
+          <span style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.9)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userName}</span>
+          <button onClick={logout} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 13, padding: 0 }}>Sair</button>
         </div>
       </aside>
       {/* Content */}
