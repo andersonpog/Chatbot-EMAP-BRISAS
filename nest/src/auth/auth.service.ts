@@ -92,6 +92,10 @@ async login(email: string, senha: string) {
     throw new UnauthorizedException('Credenciais inválidas.');
   }
 
+  if (!funcionario.active) {
+    throw new UnauthorizedException('Usuário desativado. Contate o administrador.');
+  }
+
   // O que vai dentro do token (Payload)
   const payload = { sub: funcionario.id, email: funcionario.email, role: funcionario.role };
 
