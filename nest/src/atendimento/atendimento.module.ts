@@ -8,6 +8,6 @@ import { AtendimentoController } from './atendimento.controller';
   imports: [TypeOrmModule.forFeature([Atendimento])],
   controllers: [AtendimentoController],
   providers: [AtendimentoService],
-  exports: [AtendimentoService], // Exporta se o Webhook precisar usar
+  exports: [AtendimentoService],
 })
 export class AtendimentoModule {}

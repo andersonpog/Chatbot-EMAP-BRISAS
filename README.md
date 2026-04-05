@@ -59,14 +59,14 @@ docker compose up -d
 
 Isso inicia os serviços: **PostgreSQL**, **Evolution API** e **Redis**.
 ### 2.1. Configurando a evolution
-1-Entre em http://localhost:8080/manager/
-2-Clique em criar uma nova instancia no canto superior direito
-3-Na janela dê um nome da sua escolha para instância, deixe como Baileys.
-4-Clique em settings em cima da instancia criada 
-5-Dentro da instancia clique em get QR CODE e conecte o whatsapp 
-6-Assim que o whatsap estiver conectado, entre na aba eventos e depois em webhook no menu lateral esquerdo.
-7-Clicar em ativar o enabled
-8- http://host.docker.internal:3001/webhook colocar esse link na URL 
+1-Entre em http://localhost:8080/manager/ <br>
+2-Clique em criar uma nova instancia no canto superior direito <br>
+3-Na janela dê um nome da sua escolha para instância, deixe como Baileys. <br>
+4-Clique em settings em cima da instancia criada <br>
+5-Dentro da instancia clique em get QR CODE e conecte o whatsapp <br>
+6-Assim que o whatsap estiver conectado, entre na aba eventos e depois em webhook no menu lateral esquerdo. <br>
+7-Clicar em ativar o enabled <br>
+8- http://host.docker.internal:3001/webhook colocar esse link na URL  <br>
 9- ativar o MESSAGES_UPSERT,PRESENCE_UPDATE E CONNECTION_UPDATE em Events. No fim da página salve as alterações.
 
 ### 3. Configurar o Backend (NestJS)
