@@ -1,0 +1,6 @@
+Fazer documentação do passo a passo de como instalar o chatbot na nossa máquina
+colocar um dashboard na aba do administrador
+Fazer divisão das conversas por atendimento, encerrada ou em espera
+Pensar pra em algum encontro futuro como que vai funcionar o script de backup
+Adicionar opção do atendente encerrar a conversa
+Um atendente não pode ver com quem outros atendentes estão conversando
