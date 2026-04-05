@@ -188,7 +188,11 @@ export default function WaAtendimento() {
     }
   }, []);
 
-  useEffect(() => { loadMessages(); }, [loadMessages]);
+  useEffect(() => {
+    loadMessages();
+    const t = setInterval(loadMessages, 10000);
+    return () => clearInterval(t);
+  }, [loadMessages]);
 
   const loadFila = useCallback(async () => {
     try {
