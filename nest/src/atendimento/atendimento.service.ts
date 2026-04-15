@@ -10,14 +10,16 @@ export class AtendimentoService {
     private readonly atendimentoRepo: Repository<Atendimento>,
   ) {}
 
-  // Lista apenas quem está esperando ou conversando com humano
+  // Lista fila ativa + finalizados de hoje (para o front saber mover para "Resolvidos")
   async listarFilaAtiva() {
-    return this.atendimentoRepo.find({
-      where: { 
-        status: In(['AGUARDANDO', 'EM_ATENDIMENTO']) 
-      },
-      order: { dataCriacao: 'ASC' }, // Primeiro a chegar, primeiro a ser atendido
-    });
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    return this.atendimentoRepo
+      .createQueryBuilder('a')
+      .where('a.status IN (:...ativos)', { ativos: ['AGUARDANDO', 'EM_ATENDIMENTO'] })
+      .orWhere('a.status = :fin AND a.dataCriacao >= :hoje', { fin: 'FINALIZADO', hoje })
+      .orderBy('a.dataCriacao', 'ASC')
+      .getMany();
   }
 
   // Muda o status para o robô saber que pode voltar a responder esse JID

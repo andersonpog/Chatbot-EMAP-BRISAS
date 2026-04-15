@@ -209,6 +209,16 @@ export default function WaAtendimento() {
 
   const filaDoContato = (jid: string) => fila.find(f => f.remoteJid === jid) ?? null;
 
+  // Deriva o status da aba com base na fila
+  const statusDoContato = (jid: string): Status => {
+    const ticket = filaDoContato(jid);
+    if (!ticket) return "open";
+    if (ticket.status === "AGUARDANDO") return "pending";
+    if (ticket.status === "EM_ATENDIMENTO") return "open";
+    if (ticket.status === "FINALIZADO") return "resolved";
+    return "open";
+  };
+
   const assumir = async (item: FilaItem) => {
     await fetch(`/api/atendimento/${item.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -222,11 +232,18 @@ export default function WaAtendimento() {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ acao: "finalizar" }),
     });
+    await fetch("/api/send", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        number: item.remoteJid,
+        text: "✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente.",
+      }),
+    });
     loadFila();
   };
 
-  const list = contacts.filter(c => c.status===tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q)));
-  const cnt = (s:Status) => contacts.filter(c=>c.status===s).length;
+  const list = contacts.filter(c => statusDoContato(c.id)===tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q)));
+  const cnt = (s:Status) => contacts.filter(c=>statusDoContato(c.id)===s).length;
   useEffect(()=>{ref.current?.scrollIntoView({behavior:"smooth"})},[sel,msgs]);
 
   const send = async () => {
