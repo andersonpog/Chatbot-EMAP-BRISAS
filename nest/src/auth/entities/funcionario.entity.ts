@@ -1,25 +1,28 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity('Funcionarios') // Nome exato da tabela no Postgres
+@Entity('Funcionarios')
 export class Funcionario {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   @Column()
-  senha: string;
+  senha!: string;
 
   @Column()
-  nome: string;
+  nome!: string;
 
   @Column({ default: 'ATENDENTE' })
-  role: string;
+  role!: string; // ADMIN | ATENDENTE | OBSERVADOR
 
   @Column({ default: true })
-  active: boolean;
+  active!: boolean;
+
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  lastSeen!: Date | null; // Atualizado via heartbeat para rastrear usuários online
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }

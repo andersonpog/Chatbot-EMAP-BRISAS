@@ -158,6 +158,8 @@ export default function WaAtendimento() {
   const [userRole, setUserRole] = useState<string>("ATENDENTE");
   const [fila, setFila] = useState<FilaItem[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  const prevMsgCountRef = useRef<number>(0);
+  const prevSelIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me").then(r => r.json()).then(d => {
@@ -166,7 +168,15 @@ export default function WaAtendimento() {
     }).catch(() => {});
   }, []);
 
-  const isAdmin = userRole === "ADMIN";
+  // Heartbeat — informa ao servidor que o usuário está online
+  useEffect(() => {
+    const ping = () => fetch("/api/auth/heartbeat", { method: "POST" }).catch(() => {});
+    ping();
+    const t = setInterval(ping, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const isReadOnly = userRole === "ADMIN" || userRole === "OBSERVADOR";
 
   const sel = contacts.find(c => c.id === selId) ?? null;
 
@@ -190,7 +200,7 @@ export default function WaAtendimento() {
 
   useEffect(() => {
     loadMessages();
-    const t = setInterval(loadMessages, 10000);
+    const t = setInterval(loadMessages, 5000);
     return () => clearInterval(t);
   }, [loadMessages]);
 
@@ -228,10 +238,7 @@ export default function WaAtendimento() {
   };
 
   const finalizar = async (item: FilaItem) => {
-    await fetch(`/api/atendimento/${item.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "finalizar" }),
-    });
+    // Envia mensagem de encerramento ANTES de finalizar o ticket
     await fetch("/api/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -239,12 +246,26 @@ export default function WaAtendimento() {
         text: "✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente.",
       }),
     });
+    await fetch(`/api/atendimento/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "finalizar" }),
+    });
     loadFila();
   };
 
   const list = contacts.filter(c => statusDoContato(c.id)===tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q)));
   const cnt = (s:Status) => contacts.filter(c=>statusDoContato(c.id)===s).length;
-  useEffect(()=>{ref.current?.scrollIntoView({behavior:"smooth"})},[sel,msgs]);
+  useEffect(() => {
+    if (!sel) return;
+    const currentCount = (msgs[sel.id] || []).length;
+    const contactoMudou = sel.id !== prevSelIdRef.current;
+    const temMensagemNova = currentCount > prevMsgCountRef.current;
+    if (contactoMudou || temMensagemNova) {
+      ref.current?.scrollIntoView({ behavior: contactoMudou ? "instant" : "smooth" });
+    }
+    prevMsgCountRef.current = currentCount;
+    prevSelIdRef.current = sel.id;
+  }, [sel, msgs]);
 
   const send = async () => {
     if (!inp.trim() || !sel) return;
@@ -315,7 +336,7 @@ export default function WaAtendimento() {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color:"#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color:"#667781"}}>{c.time}</span></div>
                 <div className="flex justify-between items-center"><span className="text-[13px] truncate max-w-[170px]" style={{color:"#667781"}}>{c.lastMsg}</span>{c.unread>0&&<span className="w-5 h-5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{c.unread}</span>}</div>
-                {(() => { const t = filaDoContato(c.id); if (!t) return null; return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:t.status==="AGUARDANDO"?"#fff3cd":"#d1ecf1",color:t.status==="AGUARDANDO"?"#856404":"#0c5460"}}>{t.status==="AGUARDANDO"?"Aguardando":"Em atendimento"}</span></div>; })()}
+                {(() => { const t = filaDoContato(c.id); if (!t) return null; const label = t.status==="AGUARDANDO"?"Aguardando":t.status==="EM_ATENDIMENTO"?"Em atendimento":"Resolvido"; const bg = t.status==="AGUARDANDO"?"#fff3cd":t.status==="EM_ATENDIMENTO"?"#d1ecf1":"#e7f7ef"; const fg = t.status==="AGUARDANDO"?"#856404":t.status==="EM_ATENDIMENTO"?"#0c5460":"#00a884"; return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:bg,color:fg}}>{label}</span></div>; })()}
                 {c.tags&&<div className="flex gap-1 mt-1">{c.tags.map(t=><Tag key={t} t={t}/>)}</div>}
               </div>
             </button>
@@ -341,13 +362,13 @@ export default function WaAtendimento() {
                 if (ticket.status === "AGUARDANDO") return (
                   <span style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{background:"#fff3cd",color:"#856404",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Aguardando</span>
-                    {!isAdmin && <button onClick={()=>assumir(ticket)} style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Assumir</button>}
+                    {!isReadOnly && <button onClick={()=>assumir(ticket)} style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Assumir</button>}
                   </span>
                 );
                 if (ticket.status === "EM_ATENDIMENTO") return (
                   <span style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{background:"#d1ecf1",color:"#0c5460",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento</span>
-                    {!isAdmin && <button onClick={()=>finalizar(ticket)} style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Finalizar</button>}
+                    {!isReadOnly && <button onClick={()=>finalizar(ticket)} style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Finalizar</button>}
                   </span>
                 );
                 return null;
@@ -365,7 +386,7 @@ export default function WaAtendimento() {
               </div>
             ))}<div ref={ref}/>
           </div></div>
-          {isAdmin ? (
+          {isReadOnly ? (
             <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
               Modo observador — apenas visualização
             </div>

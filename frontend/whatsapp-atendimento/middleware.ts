@@ -18,6 +18,11 @@ export async function middleware(req: NextRequest) {
     if (pathname.startsWith("/admin") && role !== "ADMIN") {
       return NextResponse.redirect(new URL("/atendimento", req.url));
     }
+
+    // OBSERVADOR só pode acessar /atendimento
+    if (role === "OBSERVADOR" && !pathname.startsWith("/atendimento") && !pathname.startsWith("/api")) {
+      return NextResponse.redirect(new URL("/atendimento", req.url));
+    }
     return NextResponse.next();
   } catch {
     return NextResponse.redirect(new URL("/login", req.url));

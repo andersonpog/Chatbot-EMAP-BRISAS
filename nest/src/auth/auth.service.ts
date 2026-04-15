@@ -67,10 +67,23 @@ async registrar(nome: string, email: string, senha: string, role: string) {
 
   async listar() {
     const funcionarios = await this.funcionarioRepository.find({
-      select: ['id', 'nome', 'email', 'role', 'active', 'createdAt'],
+      select: ['id', 'nome', 'email', 'role', 'active', 'lastSeen', 'createdAt'],
       order: { createdAt: 'DESC' },
     });
     return funcionarios;
+  }
+
+  async heartbeat(id: string) {
+    await this.funcionarioRepository.update(id, { lastSeen: new Date() });
+  }
+
+  getUptime() {
+    const segundos = Math.floor(process.uptime());
+    const dias = Math.floor(segundos / 86400);
+    const horas = Math.floor((segundos % 86400) / 3600);
+    const minutos = Math.floor((segundos % 3600) / 60);
+    const segs = segundos % 60;
+    return { segundos, dias, horas, minutos, segs };
   }
 
   async atualizar(id: string, dados: { nome?: string; role?: string; active?: boolean }) {
