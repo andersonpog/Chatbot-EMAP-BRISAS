@@ -17,6 +17,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     fetch("/api/auth/me").then(r => r.json()).then(d => { if (d.nome) setUserName(d.nome); }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const ping = () => fetch("/api/auth/heartbeat", { method: "POST" }).catch(() => {});
+    ping();
+    const t = setInterval(ping, 30000);
+    return () => clearInterval(t);
+  }, []);
+
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.replace("/login");

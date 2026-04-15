@@ -36,6 +36,19 @@ async registrar(@Body() body: any) {
     return this.authService.atualizar(id, body);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('heartbeat')
+  async heartbeat(@Request() req) {
+    await this.authService.heartbeat(req.user.userId);
+    return { ok: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('uptime')
+  getUptime() {
+    return this.authService.getUptime();
+  }
+
   @UseGuards(AuthGuard('jwt'))
   @Get('perfil')
   async getProfile(@Request() req) {

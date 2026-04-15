@@ -18,7 +18,17 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: EVO_KEY },
-      body: JSON.stringify({ number, text }),
+      body: JSON.stringify({
+        number,
+        text,
+        delay: 1200,
+        linkPreview: false,
+        options: {
+          presence: "composing",
+          checkContact: false,
+          forceSend: true,
+        },
+      }),
     });
 
     if (!res.ok) {

@@ -177,6 +177,7 @@ export default function UsuariosPage() {
                 <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
                   style={{ ...inputStyle, backgroundColor: "#fff" }}>
                   <option value="ATENDENTE">Atendente</option>
+                  <option value="OBSERVADOR">Observador</option>
                   <option value="ADMIN">Administrador</option>
                 </select>
               </div>
@@ -218,6 +219,7 @@ export default function UsuariosPage() {
                 <select value={editForm.role} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))}
                   style={{ ...inputStyle, backgroundColor: "#fff" }}>
                   <option value="ATENDENTE">Atendente</option>
+                  <option value="OBSERVADOR">Observador</option>
                   <option value="ADMIN">Administrador</option>
                 </select>
               </div>
