@@ -50,6 +50,12 @@ export class EvolutionController {
       // Recupera ou define o estado inicial
       let estadoAtual = estadosUsuarios[remoteJid] || 'INICIO';
 
+      // Se o usuário estava com o analista, mas o atendimento no banco não está mais ativo (foi finalizado),
+      // nós resetamos o estado do robô para ele voltar a responder desde o início.
+      if (estadoAtual === 'AGUARDANDO_ANALISTA') {
+        estadoAtual = 'INICIO';
+      }
+
       try {
         // --- FLUXO INICIAL ---
         if (estadoAtual === 'INICIO') {
@@ -241,6 +247,9 @@ export class EvolutionController {
       } catch (error) {
         console.error('Erro no fluxo de atendimento:', error.message);
       }
+
+      // Dispara o WebSocket novamente para atualizar a tela com a resposta automática que o bot acabou de enviar
+      this.evolutionGateway.emitirNovaMensagem();
     }
     return { status: 200 };
   }
