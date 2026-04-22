@@ -4,10 +4,11 @@ import { HttpModule } from '@nestjs/axios';
 import { EvolutionService } from './evolution.service';
 import { EvolutionController } from './evolution.controller';
 import { Atendimento } from '../atendimento/entities/atendimento.entity';
+import { EvolutionGateway } from './evolution.gateway';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Atendimento]), HttpModule],
-  providers: [EvolutionService],
+  providers: [EvolutionService, EvolutionGateway],
   controllers: [EvolutionController],
   exports: [EvolutionService], // Exporta se quiser usar em outros módulos
 })

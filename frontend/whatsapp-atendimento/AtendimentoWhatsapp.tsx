@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback, type FC, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { io } from "socket.io-client";
 
 // Chamadas passam pelo proxy Next.js (sem CORS, sem expor credenciais no browser)
 
@@ -187,8 +188,8 @@ export default function WaAtendimento() {
 
   const sel = contacts.find(c => c.id === selId) ?? null;
 
-  const loadMessages = useCallback(async () => {
-    setLoading(true);
+  const loadMessages = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/messages");
@@ -201,15 +202,9 @@ export default function WaAtendimento() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar mensagens");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    loadMessages();
-    const t = setInterval(loadMessages, 5000);
-    return () => clearInterval(t);
-  }, [loadMessages]);
 
   const loadFila = useCallback(async () => {
     try {
@@ -219,9 +214,22 @@ export default function WaAtendimento() {
   }, []);
 
   useEffect(() => {
+    loadMessages(true); // Carrega a primeira vez mostrando o layout de "Carregando..."
+    
+    // Conecta ao WebSocket do NestJS
+    const socket = io("http://localhost:3001");
+    socket.on("nova_mensagem", () => {
+      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
+      loadFila(); // Aproveita e atualiza a fila instantaneamente também!
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [loadMessages, loadFila]);
+
+  useEffect(() => {
     loadFila();
-    const t = setInterval(loadFila, 8000);
-    return () => clearInterval(t);
   }, [loadFila]);
 
 

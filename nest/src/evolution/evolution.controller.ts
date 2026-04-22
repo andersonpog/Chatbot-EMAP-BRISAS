@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { EvolutionService } from './evolution.service';
 import { Atendimento } from '../atendimento/entities/atendimento.entity';
+import { BotMessages } from '../../messages';
+import { EvolutionGateway } from './evolution.gateway';
 
 // Controle de estado simples em memória
 const estadosUsuarios = {}; 
@@ -13,6 +15,7 @@ export class EvolutionController {
     private readonly evolutionService: EvolutionService,
     @InjectRepository(Atendimento)
     private readonly atendimentoRepo: Repository<Atendimento>,
+    private readonly evolutionGateway: EvolutionGateway,
   ) {}
 
   @Post()
@@ -20,6 +23,9 @@ export class EvolutionController {
     const { event, data, instance } = payload;
 
     if (event === 'messages.upsert') {
+
+      // Emite o evento em tempo real para o frontend atualizar a tela sem piscar
+      this.evolutionGateway.emitirNovaMensagem();
 
       const remoteJid = data.key.remoteJid;
       if (data.key.fromMe || remoteJid.includes('@g.us')) return { status: 200 };
@@ -50,10 +56,18 @@ export class EvolutionController {
           await this.evolutionService.enviarMensagem(
             instance, 
             remoteJid, 
-            `Olá ${nome}! Digite a opção desejada:\n\n1 - Horários de saída do Ferry Boat\n2 - Falar com atendente\n0 - Encerrar atendimento`
+            BotMessages.SAUDACAO_INICIAL
+          );
+          estadosUsuarios[remoteJid] = 'SAUDACAO_INICIAL';
+        } 
+        else if (estadoAtual === 'SAUDACAO_INICIAL') {
+          await this.evolutionService.enviarMensagem(
+            instance, 
+            remoteJid, 
+            BotMessages.MENU_PRINCIPAL
           );
           estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
-        } 
+        }
 
         // --- PROCESSANDO MENU PRINCIPAL ---
         else if (estadoAtual === 'MENU_PRINCIPAL') {
@@ -61,46 +75,166 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              "🚢 *Horários de Saída:*\n- 08:00h\n- 18:00h\n\nDigite:\n1 - Retornar ao menu inicial\n0 - Encerrar atendimento"
+              BotMessages.SUBMENU_VISITAS_PORTO
             );
-            estadosUsuarios[remoteJid] = 'AGUARDANDO_SUB_OPCAO';
+            estadosUsuarios[remoteJid] = 'SUBMENU_VISITAS_PORTO';
           } 
           else if (textoRecebido === '2') {
-            // Criar entrada na fila de espera
-              await this.atendimentoRepo.save({
-                remoteJid,
-                nome,
-                status: 'AGUARDANDO'
-              });
-
-              await this.evolutionService.enviarMensagem(instance, remoteJid, "✅ Você foi colocado na fila de espera. Um atendente da EMAP entrará em contato em breve.");
-              estadosUsuarios[remoteJid] = 'INICIO';
-            // await this.evolutionService.enviarMensagem(instance, remoteJid, "Encaminhando você para um atendente humano... Por favor, aguarde.");
-            // estadosUsuarios[remoteJid] = 'INICIO'; // Reseta para a próxima vez que ele chamar
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.SUBMENU_TRABALHE_CONOSCO
+            );
+            estadosUsuarios[remoteJid] = 'SUBMENU_TRABALHE_CONOSCO';
           } 
+          else if (textoRecebido === '3') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.RESPOSTA_COMERCIAL
+            );
+            estadosUsuarios[remoteJid] = 'AGUARDANDO_SUB_OPCAO';
+          }
+          else if (textoRecebido === '4') {
+            // Criar entrada na fila de espera
+            await this.atendimentoRepo.save({
+              remoteJid,
+              nome,
+              status: 'AGUARDANDO'
+            });
+
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.ANALISTA_OUVIDORIA
+            );
+            estadosUsuarios[remoteJid] = 'AGUARDANDO_ANALISTA';
+          }
           else if (textoRecebido === '0') {
-            await this.evolutionService.enviarMensagem(instance, remoteJid, "Atendimento encerrado. Tenha um ótimo dia!");
-            estadosUsuarios[remoteJid] = 'INICIO';
+            await this.evolutionService.enviarMensagem(
+              instance,
+              remoteJid,
+              BotMessages.DESPEDIDA
+            );
+            delete estadosUsuarios[remoteJid];
           } 
           else {
-            await this.evolutionService.enviarMensagem(instance, remoteJid, "Opção inválida. Digite 1, 2 ou 0.");
+            await this.evolutionService.enviarMensagem(
+              instance,
+              remoteJid,
+              BotMessages.OPCAO_INVALIDA
+            );
           }
         }
 
-        // --- PROCESSANDO SUB-MENU (DENTRO DA OPÇÃO 1) ---
-        else if (estadoAtual === 'AGUARDANDO_SUB_OPCAO') {
+        // --- SUBMENU VISITAS AO PORTO ---
+        else if (estadoAtual === 'SUBMENU_VISITAS_PORTO') {
           if (textoRecebido === '1') {
-            // Volta para o menu inicial forçando o envio da mensagem
-            estadosUsuarios[remoteJid] = 'INICIO';
-            // Recursão simples ou apenas aguarda a próxima msg (aqui vamos resetar para ele mandar o menu de novo)
-            await this.receberEvento(payload); 
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.MENU_PRINCIPAL
+            );
+            estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
           } 
-          else if (textoRecebido === '0') {
-            await this.evolutionService.enviarMensagem(instance, remoteJid, "Atendimento encerrado. Boa viagem!");
-            estadosUsuarios[remoteJid] = 'INICIO';
-          } 
+          else if (textoRecebido === '2') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.AGENDAR_VISITA_PORTO
+            );
+            estadosUsuarios[remoteJid] = 'AGENDAR_VISITA';
+          }
+          else if (textoRecebido === '3') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.CANCELAR_VISITA_PORTO
+            );
+            estadosUsuarios[remoteJid] = 'REAGENDAR_CANCELAR_VISITA';
+          }
           else {
-            await this.evolutionService.enviarMensagem(instance, remoteJid, "Opção inválida. Digite 1 para voltar ou 0 para encerrar.");
+            await this.evolutionService.enviarMensagem(
+              instance,
+              remoteJid,
+              BotMessages.OPCAO_INVALIDA
+            );
+          }
+        }
+
+        // --- SUBMENU TRABALHE CONOSCO ---
+        else if (estadoAtual === 'SUBMENU_TRABALHE_CONOSCO') {
+          if (textoRecebido === '1') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.MENU_PRINCIPAL
+            );
+            estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
+          } 
+          else if (textoRecebido === '2') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.TRABALHE_CONOSCO
+            );
+            estadosUsuarios[remoteJid] = 'TRABALHE_CONOSCO_OPCAO';
+          }
+          else if (textoRecebido === '3') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.ESTAGIO_PORTO
+            );
+            estadosUsuarios[remoteJid] = 'ESTAGIO_OPCAO';
+          }
+          else if (textoRecebido === '4') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.JOVEM_APRENDIZ_PORTO
+            );
+            estadosUsuarios[remoteJid] = 'JOVEM_APRENDIZ_OPCAO';
+          }
+          else if (textoRecebido === '0') {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.DESPEDIDA
+            );
+            delete estadosUsuarios[remoteJid];
+          }
+          else {
+            await this.evolutionService.enviarMensagem(
+              instance, 
+              remoteJid, 
+              BotMessages.OPCAO_INVALIDA
+            );
+          }
+        }
+
+        // --- OPÇÕES FINAIS (RETORNAR AO MENU INICIAL OU ENCERRAR) ---
+        else if (['TRABALHE_CONOSCO_OPCAO', 'ESTAGIO_OPCAO', 'JOVEM_APRENDIZ_OPCAO', 'AGENDAR_VISITA', 'REAGENDAR_CANCELAR_VISITA', 'AGUARDANDO_SUB_OPCAO'].includes(estadoAtual)) {
+          if (textoRecebido === '1') {
+            estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
+            await this.evolutionService.enviarMensagem(
+              instance,
+              remoteJid,
+              BotMessages.MENU_PRINCIPAL
+            );
+          } else if (textoRecebido === '0') {
+            await this.evolutionService.enviarMensagem(
+              instance,
+              remoteJid,
+              BotMessages.DESPEDIDA
+            );
+            delete estadosUsuarios[remoteJid];
+          } else {
+            await this.evolutionService.enviarMensagem(
+              instance,
+              remoteJid,
+              BotMessages.OPCAO_INVALIDA
+            );
           }
         }
 

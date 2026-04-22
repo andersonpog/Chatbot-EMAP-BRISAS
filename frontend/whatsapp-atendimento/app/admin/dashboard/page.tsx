@@ -91,7 +91,11 @@ export default function DashboardPage() {
 
         {/* Painel de usuários online */}
         <div style={{ maxWidth: 720 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111b21", marginBottom: 16 }}>Usuários online agora</h2>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111b21", margin: 0 }}>Usuários online agora</h2>
+            
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
 
             {/* Atendentes */}
@@ -131,12 +135,13 @@ export default function DashboardPage() {
             </div>
 
             {/* Administradores */}
-            <div style={{ backgroundColor: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.07)", gridColumn: "1 / -1" }}>
+            <div style={{ backgroundColor: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#667781", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Administradores ({onlineAdmins.length}/{admins.length})
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 4 }}>
-                {admins.map(u => (
+              {admins.length === 0
+                ? <p style={{ fontSize: 13, color: "#aaa" }}>Nenhum administrador cadastrado</p>
+                : admins.map(u => (
                   <div key={u.id} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f0f2f5" }}>
                     <OnlineDot online={isOnline(u.lastSeen)} />
                     <span style={{ fontSize: 13, color: "#111b21", fontWeight: isOnline(u.lastSeen) ? 600 : 400 }}>{u.nome}</span>
@@ -145,6 +150,20 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 ))}
+            </div>
+
+            {/* Sistema / Bot */}
+            <div style={{ backgroundColor: "#fff", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#667781", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Sistema (1/1)
+              </div>
+              <div style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f0f2f5" }}>
+                <OnlineDot online={true} />
+                <span style={{ fontSize: 16, marginRight: 6, lineHeight: 1 }}>🤖</span>
+                <span style={{ fontSize: 13, color: "#111b21", fontWeight: 600 }}>Bot Ouvidoria</span>
+                <span style={{ marginLeft: "auto", fontSize: 11, color: "#25D366" }}>
+                  Online
+                </span>
               </div>
             </div>
 
