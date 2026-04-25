@@ -413,7 +413,7 @@ export default function WaAtendimento() {
             {(msgs[sel.id]||[]).map(m=>(
               <div key={m.id} className="flex w-full" style={{justifyContent:m.from==="agent"?"flex-end":"flex-start"}}>
                 <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?"#d9fdd3":"#fff",borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:"0 1px .5px rgba(11,20,26,.08)"}}>
-                  <span className="text-sm" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{m.text}</span>
+                  <span className="text-sm whitespace-pre-wrap" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{m.text}</span>
                   <span className="flex items-center justify-end text-[11px] mt-0.5 ml-2 float-right" style={{color:"#667781"}}>{m.time}{m.from==="agent"&&(m.sending ? <Ico.Clock c="#8696a0" s={12}/> : <Ico.DblChk/>)}</span>
                 </div>
               </div>
