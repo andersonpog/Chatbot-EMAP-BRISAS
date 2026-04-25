@@ -1,6 +1,7 @@
 export const BotMessages = {
   // O que estava no Word como: "Mensagem de boas vindas"
-SAUDACAO_INICIAL: "Olá!Bem-vindo ao atendimento Ouvidoria-EMAP. Para que possamos dar continuidade ao atendimento, me informe o seu nome e email",
+SAUDACAO_INICIAL: `Olá!Bem-vindo ao atendimento Ouvidoria-EMAP. 
+Para que possamos dar continuidade ao atendimento, me informe o seu nome e email`,
 
   // O que estava no Word como: "Menu principal"
 MENU_PRINCIPAL: `Para garantir a nossa comunicação, é importante que saiba que a cada interação, você tem o tempo de 1 hora para responder ou o chat será finalizado automaticamente.
@@ -14,7 +15,7 @@ Por favor, escolha uma das opções abaixo digitando o número:
 OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opção desejada.",
 
     SUBMENU_VISITAS_PORTO: `O que você deseja Fazer?
-    1 - Voltar ao menu anterior
+    1 - Voltar ao menu inicial
     2 - Agendar visita ao porto
     3 - Reagendar/Cancelar visita`,
 
@@ -29,7 +30,7 @@ OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opçã
 
         Atenciosamente,
         Ouvidoria EMAP
-        Digite: 1 - Retornar ao menu inicial 0 - Encerrar atendimento`,
+        Digite: 1 - Retornar ao menu anterior 0 - Encerrar atendimento`,
 
         //EM CASO DE REAGENDAR OU CANCELAMENTO
         CANCELAR_VISITA_PORTO:`Com objetivo maior de atender a sua manifestação segue abaixo, contatos para melhores e maiores esclarecimentos de detalhes sobre a solicitação:
@@ -39,10 +40,10 @@ OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opçã
         E-mail: comunicacao@emap.ma.gov.br
 
         Estamos à disposição!
-        Digite: 1 - Retornar ao menu inicial 0 - Encerrar atendimento`,
+        Digite: 1 - Retornar ao menu anterior  0 - Encerrar atendimento`,
 
     SUBMENU_TRABALHE_CONOSCO:`Informe o seu interesse:
-    1 - Voltar ao menu anterior
+    1 - Voltar ao menu inicial
     2 - Trabalhar conosco
     3 - Estágio
     4- Jovem Aprendiz`,
@@ -54,7 +55,7 @@ OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opçã
         Contudo, caso esteja em busca de oportunidades, existem várias outras empresas privadas que atuam na área do Porto, conforme link: http://www.portodoitaqui.ma.gov.br/porto-do-itaqui/comunidade-portuaria. Para acompanhar informações sobre concursos, sugerimos que fique atento(a) ao site do Porto do Itaqui (https://www.portodoitaqui.com/emap/a-emap ).
         Atenciosamente,
         Ouvidoria EMAP.
-        Digite: 1 - Retornar ao menu inicial 0 - Encerrar atendimento`,
+        Digite: 1 - Retornar ao menu anterior 0 - Encerrar atendimento`,
 
         ESTAGIO_PORTO:`Primeiramente, gostaríamos de agradecer o seu contato e o interesse pela EMAP-Porto do Itaqui!
  
@@ -62,7 +63,7 @@ OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opçã
         Como seu foco é a área portuária, sugerimos que acesse o site  http://www.portodoitaqui.ma.gov.br/porto-do-itaqui/comunidade-portuaria para que você conheça mais desse universo e, ainda, possa encontrar outras empresas que atuam no Porto do Itaqui.
         Atenciosamente,
         Ouvidoria EMAP.
-        Digite: 1 - Retornar ao menu inicial 0 - Encerrar atendimento`,
+        Digite: 1 - Retornar ao menu anterior 0 - Encerrar atendimento`,
 
         JOVEM_APRENDIZ_PORTO:`Primeiramente, gostaríamos de agradecer o seu contato e o interesse pela EMAP-Porto do Itaqui!
 
@@ -71,7 +72,7 @@ OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opçã
         Para se candidatar a esse programa, você deve estar cadastrado na instituição formadora contratada pela empresa. Atualmente é o ISBET - Instituto Brasileiro Pró-Educação, Trabalho e Desenvolvimento ( www.isbet.org.br ). 
         Atenciosamente,
         Ouvidoria EMAP.
-        Digite: 1 - Retornar ao menu inicial 0 - Encerrar atendimento`,
+        Digite: 1 - Retornar ao menu anterior 0 - Encerrar atendimento`,
 
     ANALISTA_OUVIDORIA:`Um atendente da EMAP entrará em contato em breve.`,
 
@@ -83,7 +84,7 @@ OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opçã
     📝 Cadastro de Fornecedores (CRC): Não é obrigatório para participar, mas facilita a entrega de documentos. Você pode fazer no site: https://www.portodoitaqui.com/emap/cadastro-de-fornecedores
 
     Estamos à disposição!
-    Digite: 1 - Retornar ao menu inicial 0 - Encerrar atendimento`,
+    Digite: 1 - Retornar ao menu anterior 0 - Encerrar atendimento`,
     
 DESPEDIDA: "✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente."
 
