@@ -39,6 +39,9 @@ export class EvolutionController {
 
       if (!textoRecebido || fromMe) return { status: 200 };
 
+      // Aguarda 1,5 segundos (1500 ms) antes do bot processar a resposta
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       let atendimentoAtivo = await this.atendimentoRepo.findOne({
       where: { remoteJid, status: In(['AGUARDANDO', 'EM_ATENDIMENTO']) }
     });
