@@ -89,9 +89,11 @@ export default function UsuariosPage() {
     style: { width: "100%", padding: "9px 12px", border: "1.5px solid #e9edef", borderRadius: 8, fontSize: 14, boxSizing: "border-box" as const, color: "#111b21" }
   });
 
-  const roleLabel = (r: string) => r === "ADMIN"
-    ? <span style={{ background: "#e7f7ef", color: "#00a884", padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>ADMIN</span>
-    : <span style={{ background: "#f0f2f5", color: "#667781", padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>ATENDENTE</span>;
+  const roleLabel = (r: string) => {
+    if (r === "ADMIN") return <span style={{ background: "#e7f7ef", color: "#00a884", padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>ADMIN</span>;
+    if (r === "OBSERVADOR") return <span style={{ background: "#f3e8ff", color: "#8e44ad", padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>OBSERVADOR</span>;
+    return <span style={{ background: "#e8efff", color: "#5b72e8", padding: "2px 8px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>ATENDENTE</span>;
+  };
 
   const inputStyle = { width: "100%", padding: "9px 12px", border: "1.5px solid #e9edef", borderRadius: 8, fontSize: 14, boxSizing: "border-box" as const, color: "#111b21" };
 

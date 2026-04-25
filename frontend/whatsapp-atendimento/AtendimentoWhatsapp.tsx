@@ -1,12 +1,14 @@
 "use client";
 import { useState, useRef, useEffect, useCallback, type FC, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { io } from "socket.io-client";
 
 // Chamadas passam pelo proxy Next.js (sem CORS, sem expor credenciais no browser)
 
 type Status = "open" | "pending" | "resolved";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
-interface FilaItem { id: number; remoteJid: string; nome: string; status: "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string }
+interface FilaItem { id: number; remoteJid: string; nome: string; status: "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null }
 
 // Evolution API types
 interface EvoMsg {
@@ -146,6 +148,7 @@ const Av:FC<{n:string;sz?:number}> = ({n,sz=40})=><div style={{width:sz,minWidth
 const Tag:FC<{t:string}> = ({t})=><span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded" style={{color:"#00a884",backgroundColor:"#e7f7ef"}}>{t}</span>;
 
 export default function WaAtendimento() {
+  const router = useRouter();
   const [tab, setTab] = useState<Status>("open");
   const [selId, setSelId] = useState<string|null>(null);
   const [q, setQ] = useState("");
@@ -154,6 +157,7 @@ export default function WaAtendimento() {
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
+  const [userId, setUserId] = useState<string | number | null>(null);
   const [userName, setUserName] = useState("Atendente");
   const [userRole, setUserRole] = useState<string>("ATENDENTE");
   const [fila, setFila] = useState<FilaItem[]>([]);
@@ -162,11 +166,15 @@ export default function WaAtendimento() {
   const prevSelIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => {
+    fetch("/api/auth/me", { cache: "no-store" }).then(async r => {
+      if (!r.ok) throw new Error("Não autenticado");
+      return r.json();
+    }).then(d => {
+      if (d.id) setUserId(d.id);
       if (d.nome) setUserName(d.nome);
       if (d.role) setUserRole(d.role);
-    }).catch(() => {});
-  }, []);
+    }).catch(() => window.location.replace("/login"));
+  }, [router]);
 
   // Heartbeat — informa ao servidor que o usuário está online
   useEffect(() => {
@@ -180,8 +188,8 @@ export default function WaAtendimento() {
 
   const sel = contacts.find(c => c.id === selId) ?? null;
 
-  const loadMessages = useCallback(async () => {
-    setLoading(true);
+  const loadMessages = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/messages");
@@ -194,15 +202,9 @@ export default function WaAtendimento() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar mensagens");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    loadMessages();
-    const t = setInterval(loadMessages, 5000);
-    return () => clearInterval(t);
-  }, [loadMessages]);
 
   const loadFila = useCallback(async () => {
     try {
@@ -212,12 +214,32 @@ export default function WaAtendimento() {
   }, []);
 
   useEffect(() => {
+    loadMessages(true); // Carrega a primeira vez mostrando o layout de "Carregando..."
+    
+    // Conecta ao WebSocket do NestJS
+    const socket = io("http://localhost:3001");
+    socket.on("nova_mensagem", () => {
+      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
+      loadFila(); // Aproveita e atualiza a fila instantaneamente também!
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [loadMessages, loadFila]);
+
+  useEffect(() => {
     loadFila();
-    const t = setInterval(loadFila, 8000);
-    return () => clearInterval(t);
   }, [loadFila]);
 
-  const filaDoContato = (jid: string) => fila.find(f => f.remoteJid === jid) ?? null;
+
+  const filaDoContato = (jid: string) => {
+    // Prioriza encontrar um ticket que ainda está rolando (Aguardando ou Em Atendimento)
+    const ativo = fila.find(f => f.remoteJid === jid && f.status !== "FINALIZADO");
+    if (ativo) return ativo;
+    // Se não tiver ativo, puxa o ticket finalizado mais recente pra saber quem foi o atendente
+    return fila.find(f => f.remoteJid === jid && f.status === "FINALIZADO") ?? null;
+  };
 
   // Deriva o status da aba com base na fila
   const statusDoContato = (jid: string): Status => {
@@ -299,6 +321,13 @@ export default function WaAtendimento() {
 
   const tabData:[Status,string,ReactNode][] = [["open","ABERTOS",<Ico.Chat key="c"/>],["pending","PENDENTES",<Ico.Clock key="p"/>],["resolved","RESOLVIDOS",<Ico.Check key="r"/>]];
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    window.location.replace('/login');
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden" style={{fontFamily:"'Segoe UI',Helvetica,Arial,sans-serif",backgroundColor:"#eae6df"}}>
       {/* Sidebar */}
@@ -342,8 +371,12 @@ export default function WaAtendimento() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 px-3 py-2" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e9edef"}}>
-          <B cls="p-1.5" ch={<Ico.Set/>}/><div className="flex items-center px-2 py-1 rounded-xl bg-[#3b4a54] cursor-pointer"><Ico.Moon/></div><div className="ml-auto w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center"><Ico.WA/></div>
+        <div className="flex items-center justify-between px-4 py-3" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e9edef"}}>
+          <div className="flex items-center gap-2">
+            <B cls="p-1.5" ch={<Ico.Set/>}/>
+            <div className="flex items-center px-2 py-1 rounded-xl bg-[#3b4a54] cursor-pointer"><Ico.Moon/></div>
+          </div>
+          <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#128C7E", fontSize: 13, cursor: "pointer", padding: 0 }}>Sair</button>
         </div>
       </aside>
 
