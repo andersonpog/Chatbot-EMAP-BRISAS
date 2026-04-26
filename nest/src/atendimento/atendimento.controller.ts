@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe, Request } from '@nestjs/common';
 import { AtendimentoService } from './atendimento.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -12,14 +12,14 @@ export class AtendimentoController {
 
   @Get('fila')
   @ApiOperation({ summary: 'Lista passageiros aguardando atendimento humano' })
-  async getFila() {
-    return this.atendimentoService.listarFilaAtiva();
+  async getFila(@Request() req: any) {
+    return this.atendimentoService.listarFilaAtiva(req.user);
   }
 
   @Patch('assumir/:id')
   @ApiOperation({ summary: 'Muda status para EM_ATENDIMENTO' })
-  async assumir(@Param('id', ParseIntPipe) id: number) {
-    return this.atendimentoService.assumirAtendimento(id);
+  async assumir(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.atendimentoService.assumirAtendimento(id, req.user.sub); // Envia o ID do funcionário logado
   }
 
   @Patch('finalizar/:id')
