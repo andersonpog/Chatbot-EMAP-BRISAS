@@ -404,11 +404,6 @@ export default function WaAtendimento() {
                     <span style={{background:"#e2e8ec",color:"#54656f",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento pelo Bot</span>
                   </span>
                 );
-                if (ticket.status === "BOT") return (
-                  <span style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"#e2e8ec",color:"#54656f",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento pelo Bot</span>
-                  </span>
-                );
                 if (ticket.status === "AGUARDANDO") return (
                   <span style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{background:"#fff3cd",color:"#856404",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Aguardando</span>

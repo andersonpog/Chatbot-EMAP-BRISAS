@@ -19,7 +19,8 @@ export class AtendimentoController {
   @Patch('assumir/:id')
   @ApiOperation({ summary: 'Muda status para EM_ATENDIMENTO' })
   async assumir(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
-    return this.atendimentoService.assumirAtendimento(id, req.user.sub); // Envia o ID do funcionário logado
+    const userId = req.user.sub || req.user.id || req.user.userId;
+    return this.atendimentoService.assumirAtendimento(id, userId); // Envia o ID correto do funcionário
   }
 
   @Patch('finalizar/:id')

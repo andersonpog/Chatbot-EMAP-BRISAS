@@ -11,11 +11,13 @@ export class AtendimentoService {
   ) {}
 
   // Lista fila ativa + finalizados de hoje (para o front saber mover para "Resolvidos")
-  async listarFilaAtiva(user: { sub: string, role: string }) {
+  async listarFilaAtiva(user: any) {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
 
     const query = this.atendimentoRepo.createQueryBuilder('a');
+
+    const userId = user.sub || user.id || user.userId;
 
     // Admin e Observador veem tudo (Bot, Aguardando, Em Atendimento e Finalizados)
     if (user.role === 'ADMIN' || user.role === 'OBSERVADOR') {
@@ -24,8 +26,8 @@ export class AtendimentoService {
     } else {
       // Atendente comum vê Pendentes (Aguardando) e APENAS os seus Em Atendimento e Finalizados
       query.where('a.status = :aguardando', { aguardando: 'AGUARDANDO' })
-           .orWhere('(a.status = :emAtendimento AND (a.atendenteId = :userId OR a.atendenteId IS NULL))', { emAtendimento: 'EM_ATENDIMENTO', userId: user.sub })
-           .orWhere('(a.status = :fin AND (a.atendenteId = :userId OR a.atendenteId IS NULL) AND a.dataCriacao >= :hoje)', { fin: 'FINALIZADO', userId: user.sub, hoje });
+           .orWhere('(a.status = :emAtendimento AND (a.atendenteId = :userId OR a.atendenteId IS NULL))', { emAtendimento: 'EM_ATENDIMENTO', userId })
+           .orWhere('(a.status = :fin AND (a.atendenteId = :userId OR a.atendenteId IS NULL) AND a.dataCriacao >= :hoje)', { fin: 'FINALIZADO', userId, hoje });
     }
 
     return query.orderBy('a.dataCriacao', 'ASC').getMany();

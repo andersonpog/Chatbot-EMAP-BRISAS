@@ -51,6 +51,18 @@ export class EvolutionController {
       return { status: 200 }; // Sai sem responder nada
     }
 
+    // Se não está com humano, garante que existe um ticket BOT ativo para o Front-end
+    let ticketBot = await this.atendimentoRepo.findOne({
+      where: { remoteJid, status: 'BOT' }
+    });
+    if (!ticketBot) {
+      await this.atendimentoRepo.save({
+        remoteJid,
+        nome,
+        status: 'BOT'
+      });
+    }
+
       // Recupera ou define o estado inicial
       let estadoAtual = estadosUsuarios[remoteJid] || 'INICIO';
 
@@ -108,12 +120,17 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'AGUARDANDO_SUB_OPCAO';
           }
           else if (textoRecebido === '4') {
-            // Criar entrada na fila de espera
-            await this.atendimentoRepo.save({
-              remoteJid,
-              nome,
-              status: 'AGUARDANDO'
-            });
+            // Atualiza o ticket do Bot para a fila de espera (Aguardando humano)
+            const ticketAtual = await this.atendimentoRepo.findOne({ where: { remoteJid, status: 'BOT' } });
+            if (ticketAtual) {
+              await this.atendimentoRepo.update(ticketAtual.id, { status: 'AGUARDANDO' });
+            } else {
+              await this.atendimentoRepo.save({
+                remoteJid,
+                nome,
+                status: 'AGUARDANDO'
+              });
+            }
 
             await this.evolutionService.enviarMensagem(
               instance, 
@@ -129,6 +146,9 @@ export class EvolutionController {
               BotMessages.DESPEDIDA
             );
             delete estadosUsuarios[remoteJid];
+
+            const ticketAtual = await this.atendimentoRepo.findOne({ where: { remoteJid, status: 'BOT' } });
+            if (ticketAtual) await this.atendimentoRepo.update(ticketAtual.id, { status: 'FINALIZADO' });
           } 
           else {
             await this.evolutionService.enviarMensagem(
@@ -243,6 +263,9 @@ export class EvolutionController {
             );
             delete estadosUsuarios[remoteJid];
             delete estadoRetorno[remoteJid];
+
+            const ticketAtual = await this.atendimentoRepo.findOne({ where: { remoteJid, status: 'BOT' } });
+            if (ticketAtual) await this.atendimentoRepo.update(ticketAtual.id, { status: 'FINALIZADO' });
           } else {
             await this.evolutionService.enviarMensagem(
               instance,
