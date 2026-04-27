@@ -25,7 +25,7 @@ export class AtendimentoService {
            .orWhere('a.status = :fin AND a.dataCriacao >= :hoje', { fin: 'FINALIZADO', hoje });
     } else {
       // Atendente comum vê Pendentes (Aguardando) e APENAS os seus Em Atendimento e Finalizados
-      query.where('a.status = :aguardando', { aguardando: 'AGUARDANDO' })
+      query.where('a.status IN (:aguardando, :bot)', { aguardando: 'AGUARDANDO', bot: 'BOT' })
            .orWhere('(a.status = :emAtendimento AND (a.atendenteId = :userId OR a.atendenteId IS NULL))', { emAtendimento: 'EM_ATENDIMENTO', userId })
            .orWhere('(a.status = :fin AND (a.atendenteId = :userId OR a.atendenteId IS NULL) AND a.dataCriacao >= :hoje)', { fin: 'FINALIZADO', userId, hoje });
     }
