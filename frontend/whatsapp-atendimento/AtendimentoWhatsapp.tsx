@@ -324,6 +324,53 @@ export default function WaAtendimento() {
     }
   };
 
+  // Lista de atendentes onlines e função de encaminhar
+
+const [atendentesOnline, setAtendentesOnline] = useState<any[]>([]);
+
+const loadAtendentesOnline = useCallback(async () => {
+  try {
+    const res = await fetch("/api/atendimento/atendentes/online");
+    if (!res.ok) throw new Error("Erro ao buscar atendentes online");
+    setAtendentesOnline(await res.json());
+  } catch (e) {
+    console.error("Falha ao carregar atendentes:", e);
+  }
+}, []);
+
+useEffect(() => {
+  loadAtendentesOnline();
+}, [loadAtendentesOnline]);
+
+const encaminhar = async (atendimentoId: number, atendenteId: string) => {
+  try {
+    const res = await fetch("/api/atendimento/encaminhar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ atendimentoId, atendenteId, userId }),
+    });
+
+    const data = await res.json();
+
+    if (!data.sucesso) {
+      // mensagem informativa 
+      alert(data.mensagem); 
+      return;
+    }
+
+    // sucesso
+    loadFila();
+
+  } catch (e) {
+    console.error("Falha ao encaminhar:", e);
+    alert("Erro ao encaminhar atendimento");
+  }
+};
+
+
+
+
+
   const tabData:[Status,string,ReactNode][] = isReadOnly 
     ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
     : [["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]];
@@ -397,27 +444,73 @@ export default function WaAtendimento() {
             <div className="flex items-center gap-2">
               {sel.tags?.map(t=><Tag key={t} t={t}/>)}
               {(() => {
-                const ticket = filaDoContato(sel.id);
-                if (!ticket) return null;
-                if (ticket.status === "BOT") return (
-                  <span style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"#e2e8ec",color:"#54656f",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento pelo Bot</span>
-                  </span>
-                );
-                if (ticket.status === "AGUARDANDO") return (
-                  <span style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"#fff3cd",color:"#856404",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Aguardando</span>
-                    {!isReadOnly && <button onClick={()=>assumir(ticket)} style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Assumir</button>}
-                  </span>
-                );
-                if (ticket.status === "EM_ATENDIMENTO") return (
-                  <span style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"#d1ecf1",color:"#0c5460",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento</span>
-                    {!isReadOnly && <button onClick={()=>finalizar(ticket)} style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Finalizar</button>}
-                  </span>
-                );
-                return null;
-              })()}
+  const ticket = filaDoContato(sel.id);
+  if (!ticket) return null;
+
+  // Etiqueta 
+  const label = ticket.status === "BOT" ? "Em atendimento pelo Bot"
+               : ticket.status === "AGUARDANDO" ? "Aguardando"
+               : ticket.status === "EM_ATENDIMENTO" ? "Em atendimento"
+               : "Resolvido";
+
+  const styleMap:any = {
+    BOT: { bg:"#e2e8ec", fg:"#54656f" },
+    AGUARDANDO: { bg:"#fff3cd", fg:"#856404" },
+    EM_ATENDIMENTO: { bg:"#d1ecf1", fg:"#0c5460" },
+    FINALIZADO: { bg:"#e7f7ef", fg:"#00a884" }
+  };
+
+  const { bg, fg } = styleMap[ticket.status];
+
+  return (
+    <span style={{display:"flex",alignItems:"center",gap:8}}>
+      {/* Etiqueta */}
+      <span style={{ background: bg, color: fg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
+  {label}
+</span>
+
+      {/* Barra de ações condicional */}
+      {userRole === "ATENDENTE" && ticket.status === "AGUARDANDO" && (
+        <button
+          onClick={()=>assumir(ticket)}
+          style={{padding:"4px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8,fontSize:13,fontWeight:600, cursor:"pointer"}}
+        >
+          Assumir
+        </button>
+      )}
+
+      {userRole === "ATENDENTE" && ticket.status === "EM_ATENDIMENTO" && (
+        <button
+          onClick={()=>finalizar(ticket)}
+          style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
+        >
+          Finalizar
+        </button>
+      )}
+
+      {(userRole === "ADMIN" || userRole === "OBSERVADOR") && ticket.status === "AGUARDANDO" && (
+  <select
+  defaultValue=""
+  onChange={e=>{if(e.target.value) encaminhar(ticket.id, e.target.value);}}
+  style={{ padding:"6px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer"}}
+>
+  <option value="">Encaminhar para...</option>
+  {atendentesOnline.map(a=>(
+    <option
+      key={a.id}
+      value={a.id}
+      style={{background:"#f9f9f9",color:"#111"}}
+    >
+      {a.online ? "🟢" : "🔴"} {a.nome}
+    </option>
+  ))}
+</select>
+)}
+    </span>
+  );
+})()}
+
+
               <B cls="p-2" ch={<Ico.Phone/>}/><B cls="p-2" ch={<Ico.Search/>}/><B cls="p-2" ch={<Ico.Dots/>}/>
             </div>
           </div>
