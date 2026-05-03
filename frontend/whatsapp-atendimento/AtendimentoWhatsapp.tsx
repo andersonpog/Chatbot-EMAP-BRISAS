@@ -310,7 +310,7 @@ export default function WaAtendimento() {
   }, [sel, msgs]);
 
   const send = async () => {
-    if (!inp.trim() || !sel) return;
+    if (!inp.trim() || !sel || statusDoContato(sel.id) !== "open") return;
     const text = inp.trim();
     const msgId = `m${Date.now()}`;
     const newMsg: Msg = {
@@ -542,6 +542,13 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
           {isReadOnly ? (
             <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
               Modo observador — apenas visualização
+            </div>
+          ) : statusDoContato(sel.id) !== "open" ? (
+            <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
+              {statusDoContato(sel.id) === "resolved" ? "Atendimento encerrado — não é possível enviar mensagens." :
+               statusDoContato(sel.id) === "pending" ? "Assuma o atendimento para enviar mensagens." :
+               statusDoContato(sel.id) === "bot" ? "Em atendimento pelo Bot — assuma para enviar mensagens." :
+               "Atendimento indisponível no momento."}
             </div>
           ) : (
             <div className="px-4 py-2" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec"}}>
