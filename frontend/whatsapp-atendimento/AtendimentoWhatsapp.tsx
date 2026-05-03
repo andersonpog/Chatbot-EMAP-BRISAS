@@ -1,12 +1,14 @@
 "use client";
 import { useState, useRef, useEffect, useCallback, type FC, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { io } from "socket.io-client";
 
 // Chamadas passam pelo proxy Next.js (sem CORS, sem expor credenciais no browser)
 
-type Status = "open" | "pending" | "resolved";
+type Status = "open" | "pending" | "resolved" | "bot";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
-interface FilaItem { id: number; remoteJid: string; nome: string; status: "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string }
+interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null }
 
 // Evolution API types
 interface EvoMsg {
@@ -138,6 +140,7 @@ const Ico: Record<string, FC<{c?:string;s?:number}>> = {
   Set:({c="#54656f",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
   ChkSq:({c="currentColor",s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
   DblChk:()=><svg width="16" height="11" viewBox="0 0 16 11" fill="#53bdeb" className="ml-1"><path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 00-.336-.153.457.457 0 00-.344.153.52.52 0 00-.153.356c0 .14.051.267.153.356l2.39 2.487a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.255-.316z"/><path d="M14.757.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.249-.336.415 1.536 1.6a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.556-.378z"/></svg>,
+  Bot:({c="currentColor",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>,
 };
 
 const B:FC<{ch:ReactNode;cls?:string;onClick?:()=>void}> = ({ch,cls="",onClick})=><button onClick={onClick} className={`flex items-center justify-center cursor-pointer bg-transparent border-none ${cls}`}>{ch}</button>;
@@ -146,6 +149,7 @@ const Av:FC<{n:string;sz?:number}> = ({n,sz=40})=><div style={{width:sz,minWidth
 const Tag:FC<{t:string}> = ({t})=><span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded" style={{color:"#00a884",backgroundColor:"#e7f7ef"}}>{t}</span>;
 
 export default function WaAtendimento() {
+  const router = useRouter();
   const [tab, setTab] = useState<Status>("open");
   const [selId, setSelId] = useState<string|null>(null);
   const [q, setQ] = useState("");
@@ -154,6 +158,7 @@ export default function WaAtendimento() {
   const [msgs, setMsgs] = useState<Record<string, Msg[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
+  const [userId, setUserId] = useState<string | number | null>(null);
   const [userName, setUserName] = useState("Atendente");
   const [userRole, setUserRole] = useState<string>("ATENDENTE");
   const [fila, setFila] = useState<FilaItem[]>([]);
@@ -162,11 +167,15 @@ export default function WaAtendimento() {
   const prevSelIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => {
+    fetch("/api/auth/me", { cache: "no-store" }).then(async r => {
+      if (!r.ok) throw new Error("Não autenticado");
+      return r.json();
+    }).then(d => {
+      if (d.id) setUserId(d.id);
       if (d.nome) setUserName(d.nome);
       if (d.role) setUserRole(d.role);
-    }).catch(() => {});
-  }, []);
+    }).catch(() => window.location.replace("/login"));
+  }, [router]);
 
   // Heartbeat — informa ao servidor que o usuário está online
   useEffect(() => {
@@ -180,8 +189,8 @@ export default function WaAtendimento() {
 
   const sel = contacts.find(c => c.id === selId) ?? null;
 
-  const loadMessages = useCallback(async () => {
-    setLoading(true);
+  const loadMessages = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/messages");
@@ -194,15 +203,9 @@ export default function WaAtendimento() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar mensagens");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    loadMessages();
-    const t = setInterval(loadMessages, 5000);
-    return () => clearInterval(t);
-  }, [loadMessages]);
 
   const loadFila = useCallback(async () => {
     try {
@@ -212,21 +215,42 @@ export default function WaAtendimento() {
   }, []);
 
   useEffect(() => {
+    loadMessages(true); // Carrega a primeira vez mostrando o layout de "Carregando..."
+    
+    // Conecta ao WebSocket do NestJS
+    const socket = io("http://localhost:3001");
+    socket.on("nova_mensagem", () => {
+      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
+      loadFila(); // Aproveita e atualiza a fila instantaneamente também!
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [loadMessages, loadFila]);
+
+  useEffect(() => {
     loadFila();
-    const t = setInterval(loadFila, 8000);
-    return () => clearInterval(t);
   }, [loadFila]);
 
-  const filaDoContato = (jid: string) => fila.find(f => f.remoteJid === jid) ?? null;
+
+  const filaDoContato = (jid: string) => {
+    // Prioriza encontrar um ticket que ainda está rolando (Aguardando ou Em Atendimento)
+    const ativo = fila.find(f => f.remoteJid === jid && f.status !== "FINALIZADO");
+    if (ativo) return ativo;
+    // Se não tiver ativo, puxa o ticket finalizado mais recente pra saber quem foi o atendente
+    return fila.find(f => f.remoteJid === jid && f.status === "FINALIZADO") ?? null;
+  };
 
   // Deriva o status da aba com base na fila
-  const statusDoContato = (jid: string): Status => {
+  const statusDoContato = (jid: string): Status | null => {
     const ticket = filaDoContato(jid);
-    if (!ticket) return "open";
+    if (!ticket) return (userRole === "ADMIN" || userRole === "OBSERVADOR") ? "bot" : null;
+    if (ticket.status === "BOT") return "bot";
     if (ticket.status === "AGUARDANDO") return "pending";
     if (ticket.status === "EM_ATENDIMENTO") return "open";
     if (ticket.status === "FINALIZADO") return "resolved";
-    return "open";
+    return null;
   };
 
   const assumir = async (item: FilaItem) => {
@@ -253,8 +277,11 @@ export default function WaAtendimento() {
     loadFila();
   };
 
-  const list = contacts.filter(c => statusDoContato(c.id)===tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q)));
-  const cnt = (s:Status) => contacts.filter(c=>statusDoContato(c.id)===s).length;
+  const list = contacts.filter(c => {
+    const st = statusDoContato(c.id);
+    return st !== null && st === tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q));
+  });
+  const cnt = (s:Status) => contacts.filter(c => statusDoContato(c.id) === s).length;
   useEffect(() => {
     if (!sel) return;
     const currentCount = (msgs[sel.id] || []).length;
@@ -297,7 +324,16 @@ export default function WaAtendimento() {
     }
   };
 
-  const tabData:[Status,string,ReactNode][] = [["open","ABERTOS",<Ico.Chat key="c"/>],["pending","PENDENTES",<Ico.Clock key="p"/>],["resolved","RESOLVIDOS",<Ico.Check key="r"/>]];
+  const tabData:[Status,string,ReactNode][] = isReadOnly 
+    ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
+    : [["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]];
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    window.location.replace('/login');
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden" style={{fontFamily:"'Segoe UI',Helvetica,Arial,sans-serif",backgroundColor:"#eae6df"}}>
@@ -336,14 +372,18 @@ export default function WaAtendimento() {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color:"#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color:"#667781"}}>{c.time}</span></div>
                 <div className="flex justify-between items-center"><span className="text-[13px] truncate max-w-[170px]" style={{color:"#667781"}}>{c.lastMsg}</span>{c.unread>0&&<span className="w-5 h-5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{c.unread}</span>}</div>
-                {(() => { const t = filaDoContato(c.id); if (!t) return null; const label = t.status==="AGUARDANDO"?"Aguardando":t.status==="EM_ATENDIMENTO"?"Em atendimento":"Resolvido"; const bg = t.status==="AGUARDANDO"?"#fff3cd":t.status==="EM_ATENDIMENTO"?"#d1ecf1":"#e7f7ef"; const fg = t.status==="AGUARDANDO"?"#856404":t.status==="EM_ATENDIMENTO"?"#0c5460":"#00a884"; return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:bg,color:fg}}>{label}</span></div>; })()}
+                {(() => { const t = filaDoContato(c.id); if (!t) return null; const label = t.status==="BOT"?"Bot":t.status==="AGUARDANDO"?"Aguardando":t.status==="EM_ATENDIMENTO"?"Em atendimento":"Resolvido"; const bg = t.status==="BOT"?"#e2e8ec":t.status==="AGUARDANDO"?"#fff3cd":t.status==="EM_ATENDIMENTO"?"#d1ecf1":"#e7f7ef"; const fg = t.status==="BOT"?"#54656f":t.status==="AGUARDANDO"?"#856404":t.status==="EM_ATENDIMENTO"?"#0c5460":"#00a884"; return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:bg,color:fg}}>{label}</span></div>; })()}
                 {c.tags&&<div className="flex gap-1 mt-1">{c.tags.map(t=><Tag key={t} t={t}/>)}</div>}
               </div>
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 px-3 py-2" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e9edef"}}>
-          <B cls="p-1.5" ch={<Ico.Set/>}/><div className="flex items-center px-2 py-1 rounded-xl bg-[#3b4a54] cursor-pointer"><Ico.Moon/></div><div className="ml-auto w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center"><Ico.WA/></div>
+        <div className="flex items-center justify-between px-4 py-3" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e9edef"}}>
+          <div className="flex items-center gap-2">
+            <B cls="p-1.5" ch={<Ico.Set/>}/>
+            <div className="flex items-center px-2 py-1 rounded-xl bg-[#3b4a54] cursor-pointer"><Ico.Moon/></div>
+          </div>
+          <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#128C7E", fontSize: 13, cursor: "pointer", padding: 0 }}>Sair</button>
         </div>
       </aside>
 
@@ -359,6 +399,11 @@ export default function WaAtendimento() {
               {(() => {
                 const ticket = filaDoContato(sel.id);
                 if (!ticket) return null;
+                if (ticket.status === "BOT") return (
+                  <span style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{background:"#e2e8ec",color:"#54656f",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento pelo Bot</span>
+                  </span>
+                );
                 if (ticket.status === "AGUARDANDO") return (
                   <span style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{background:"#fff3cd",color:"#856404",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Aguardando</span>
@@ -380,7 +425,7 @@ export default function WaAtendimento() {
             {(msgs[sel.id]||[]).map(m=>(
               <div key={m.id} className="flex w-full" style={{justifyContent:m.from==="agent"?"flex-end":"flex-start"}}>
                 <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?"#d9fdd3":"#fff",borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:"0 1px .5px rgba(11,20,26,.08)"}}>
-                  <span className="text-sm" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{m.text}</span>
+                  <span className="text-sm whitespace-pre-wrap" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{m.text}</span>
                   <span className="flex items-center justify-end text-[11px] mt-0.5 ml-2 float-right" style={{color:"#667781"}}>{m.time}{m.from==="agent"&&(m.sending ? <Ico.Clock c="#8696a0" s={12}/> : <Ico.DblChk/>)}</span>
                 </div>
               </div>

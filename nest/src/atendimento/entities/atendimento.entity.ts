@@ -11,8 +11,11 @@ export class Atendimento {
   @Column()
   nome: string;
 
-  @Column({ default: 'AGUARDANDO' }) // AGUARDANDO, EM_ATENDIMENTO, FINALIZADO
+  @Column({ default: 'BOT' }) // BOT, AGUARDANDO, EM_ATENDIMENTO, FINALIZADO
   status: string;
+
+  @Column({ nullable: true })
+  atendenteId: string; // ID do funcionário (UUID) que assumiu a conversa
 
   @CreateDateColumn()
   dataCriacao: Date;
