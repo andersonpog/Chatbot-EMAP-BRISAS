@@ -6,8 +6,11 @@ import { Atendimento } from '../atendimento/entities/atendimento.entity';
 import { BotMessages } from '../../messages';
 import { EvolutionGateway } from './evolution.gateway';
 
+// UUID fixo do Bot Ouvidoria (inserido via migration InsertBotUser)
+const BOT_UUID = '00000000-0000-0000-0000-000000000001';
+
 // Controle de estado simples em memória
-const estadosUsuarios = {}; 
+const estadosUsuarios = {};
 const estadoRetorno = {};
 
 @Controller('webhook')
@@ -59,7 +62,8 @@ export class EvolutionController {
       await this.atendimentoRepo.save({
         remoteJid,
         nome,
-        status: 'BOT'
+        status: 'BOT',
+        atendenteId: BOT_UUID,
       });
     }
 

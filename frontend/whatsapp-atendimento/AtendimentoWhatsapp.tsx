@@ -9,6 +9,7 @@ type Status = "open" | "pending" | "resolved" | "bot";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
 interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null }
+interface Atendente { id: string; nome: string }
 
 // Evolution API types
 interface EvoMsg {
@@ -45,6 +46,17 @@ function getMsgText(m: EvoMsg): string {
   if (msg.documentMessage) return msg.documentMessage.title || "[Documento]";
   if (msg.stickerMessage) return "[Sticker]";
   return "[mensagem]";
+}
+
+// Remove parênteses ao redor de URLs e renderiza links clicáveis
+function renderText(text: string): ReactNode {
+  const cleaned = text.replace(/\((https?:\/\/[^\s)]+)\)/g, "$1");
+  const parts = cleaned.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, i) =>
+    /^https?:\/\//.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: "#128C7E", textDecoration: "underline" }}>{part}</a>
+      : part
+  );
 }
 
 function fmtTime(ts: number): string {
@@ -139,8 +151,10 @@ const Ico: Record<string, FC<{c?:string;s?:number}>> = {
   Moon:({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
   Set:({c="#54656f",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
   ChkSq:({c="currentColor",s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
-  DblChk:()=><svg width="16" height="11" viewBox="0 0 16 11" fill="#53bdeb" className="ml-1"><path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 00-.336-.153.457.457 0 00-.344.153.52.52 0 00-.153.356c0 .14.051.267.153.356l2.39 2.487a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.255-.316z"/><path d="M14.757.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.249-.336.415 1.536 1.6a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.556-.378z"/></svg>,
+  // Dois risquinhos cinza (cor cinza = apenas entregue, sem confirmação de leitura)
+  DblChk:()=><svg width="16" height="11" viewBox="0 0 16 11" fill="#8696a0" className="ml-1"><path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 00-.336-.153.457.457 0 00-.344.153.52.52 0 00-.153.356c0 .14.051.267.153.356l2.39 2.487a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.255-.316z"/><path d="M14.757.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.249-.336.415 1.536 1.6a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.556-.378z"/></svg>,
   Bot:({c="currentColor",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>,
+  Forward:({c="#54656f",s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 004 4h12"/></svg>,
 };
 
 const B:FC<{ch:ReactNode;cls?:string;onClick?:()=>void}> = ({ch,cls="",onClick})=><button onClick={onClick} className={`flex items-center justify-center cursor-pointer bg-transparent border-none ${cls}`}>{ch}</button>;
@@ -162,6 +176,8 @@ export default function WaAtendimento() {
   const [userName, setUserName] = useState("Atendente");
   const [userRole, setUserRole] = useState<string>("ATENDENTE");
   const [fila, setFila] = useState<FilaItem[]>([]);
+  const [encaminhandoId, setEncaminhandoId] = useState<number | null>(null);
+  const [atendentes, setAtendentes] = useState<Atendente[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const prevMsgCountRef = useRef<number>(0);
   const prevSelIdRef = useRef<string | null>(null);
@@ -185,7 +201,9 @@ export default function WaAtendimento() {
     return () => clearInterval(t);
   }, []);
 
-  const isReadOnly = userRole === "ADMIN" || userRole === "OBSERVADOR";
+  // Lógica de permissões
+  const isReadOnly = userRole === "ADMIN" || userRole === "OBSERVADOR"; // não pode digitar
+  const canForward = userRole === "ADMIN" || userRole === "OBSERVADOR"; // pode encaminhar
 
   const sel = contacts.find(c => c.id === selId) ?? null;
 
@@ -214,35 +232,41 @@ export default function WaAtendimento() {
     } catch { /* silencioso */ }
   }, []);
 
+  const loadAtendentes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/atendimento/atendentes");
+      if (res.ok) setAtendentes(await res.json());
+    } catch {}
+  }, []);
+
   useEffect(() => {
-    loadMessages(true); // Carrega a primeira vez mostrando o layout de "Carregando..."
-    
-    // Conecta ao WebSocket do NestJS
+    loadMessages(true);
     const socket = io("http://localhost:3001");
     socket.on("nova_mensagem", () => {
-      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
-      loadFila(); // Aproveita e atualiza a fila instantaneamente também!
+      loadMessages(false);
+      loadFila();
     });
-
-    return () => {
-      socket.disconnect();
-    };
+    return () => { socket.disconnect(); };
   }, [loadMessages, loadFila]);
 
   useEffect(() => {
     loadFila();
   }, [loadFila]);
 
+  // Fecha dropdown de encaminhamento ao clicar fora
+  useEffect(() => {
+    if (encaminhandoId === null) return;
+    const close = () => setEncaminhandoId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [encaminhandoId]);
 
   const filaDoContato = (jid: string) => {
-    // Prioriza encontrar um ticket que ainda está rolando (Aguardando ou Em Atendimento)
     const ativo = fila.find(f => f.remoteJid === jid && f.status !== "FINALIZADO");
     if (ativo) return ativo;
-    // Se não tiver ativo, puxa o ticket finalizado mais recente pra saber quem foi o atendente
     return fila.find(f => f.remoteJid === jid && f.status === "FINALIZADO") ?? null;
   };
 
-  // Deriva o status da aba com base na fila
   const statusDoContato = (jid: string): Status | null => {
     const ticket = filaDoContato(jid);
     if (!ticket) return (userRole === "ADMIN" || userRole === "OBSERVADOR") ? "bot" : null;
@@ -262,7 +286,6 @@ export default function WaAtendimento() {
   };
 
   const finalizar = async (item: FilaItem) => {
-    // Envia mensagem de encerramento ANTES de finalizar o ticket
     await fetch("/api/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -277,11 +300,37 @@ export default function WaAtendimento() {
     loadFila();
   };
 
+  const encaminhar = async (ticketId: number, atendenteId: string) => {
+    await fetch(`/api/atendimento/${ticketId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "encaminhar", atendenteId }),
+    });
+    setEncaminhandoId(null);
+    loadFila();
+  };
+
+  // Atendente só pode enviar mensagem se o ticket está EM_ATENDIMENTO e é o responsável
+  const canSend = (() => {
+    if (isReadOnly) return false;
+    const ticket = sel ? filaDoContato(sel.id) : null;
+    if (!ticket) return false;
+    return ticket.status === "EM_ATENDIMENTO" && String(ticket.atendenteId) === String(userId);
+  })();
+
+  const cantSendReason = (() => {
+    const ticket = sel ? filaDoContato(sel.id) : null;
+    if (!ticket || ticket.status === "BOT") return "Bot está atendendo esta conversa";
+    if (ticket.status === "AGUARDANDO") return "Assuma o atendimento para enviar mensagens";
+    if (ticket.status === "EM_ATENDIMENTO") return "Outro atendente está atendendo";
+    return "Atendimento finalizado";
+  })();
+
   const list = contacts.filter(c => {
     const st = statusDoContato(c.id);
     return st !== null && st === tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q));
   });
   const cnt = (s:Status) => contacts.filter(c => statusDoContato(c.id) === s).length;
+
   useEffect(() => {
     if (!sel) return;
     const currentCount = (msgs[sel.id] || []).length;
@@ -295,7 +344,7 @@ export default function WaAtendimento() {
   }, [sel, msgs]);
 
   const send = async () => {
-    if (!inp.trim() || !sel) return;
+    if (!inp.trim() || !sel || !canSend) return;
     const text = inp.trim();
     const msgId = `m${Date.now()}`;
     const newMsg: Msg = {
@@ -303,10 +352,8 @@ export default function WaAtendimento() {
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       from: "agent", sending: true,
     };
-    // 1. Atualização otimista — desenha na tela imediatamente
     setMsgs(p => ({ ...p, [sel.id]: [...(p[sel.id] || []), newMsg] }));
     setInp("");
-    // 2. Envio real em background — não bloqueia a UI
     try {
       const res = await fetch("/api/send", {
         method: "POST",
@@ -314,24 +361,21 @@ export default function WaAtendimento() {
         body: JSON.stringify({ number: sel.id, text }),
       });
       if (!res.ok) throw new Error(`Evolution: ${res.status}`);
-      // Marca como enviado (duplo check)
       setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
     } catch (e) {
       console.error("Falha no envio:", e);
-      // Marca a mensagem com erro removendo o flag e adicionando indicação visual
       setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
       alert("Erro ao enviar. Verifique se a Evolution está rodando.");
     }
   };
 
-  const tabData:[Status,string,ReactNode][] = isReadOnly 
-    ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
+  // Para ADMIN/OBSERVADOR: "PENDENTES" vira "TRANSFERIDOS" (tickets que saíram do Bot para fila humana)
+  const tabData:[Status,string,ReactNode][] = isReadOnly
+    ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","TRANSFERIDOS",<Ico.Forward key="t"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
     : [["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]];
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (e) {}
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
     window.location.replace('/login');
   };
 
@@ -383,7 +427,7 @@ export default function WaAtendimento() {
             <B cls="p-1.5" ch={<Ico.Set/>}/>
             <div className="flex items-center px-2 py-1 rounded-xl bg-[#3b4a54] cursor-pointer"><Ico.Moon/></div>
           </div>
-          <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#128C7E", fontSize: 13, cursor: "pointer", padding: 0 }}>Sair</button>
+          <button onClick={handleLogout} style={{background:"none",border:"none",color:"#128C7E",fontSize:13,cursor:"pointer",padding:0}}>Sair</button>
         </div>
       </aside>
 
@@ -392,6 +436,7 @@ export default function WaAtendimento() {
         {!sel?(
           <div className="flex-1 flex flex-col items-center justify-center gap-4"><Ico.Emoji c="#bfc8d0" s={60}/><p className="text-[22px] font-light text-center" style={{color:"#667781"}}>Selecione<br/>um ticket!</p></div>
         ):(<>
+          {/* Header da conversa */}
           <div className="flex items-center justify-between px-4 py-2" style={{backgroundColor:"#f0f2f5",borderBottom:"1px solid #e2e8ec",minHeight:56}}>
             <div className="flex items-center gap-3"><Av n={sel.name}/><div><div className="font-semibold text-[15px]" style={{color:"#111b21"}}>{sel.name}</div><div className="text-xs" style={{color:"#667781"}}>{sel.phone}</div></div></div>
             <div className="flex items-center gap-2">
@@ -399,41 +444,107 @@ export default function WaAtendimento() {
               {(() => {
                 const ticket = filaDoContato(sel.id);
                 if (!ticket) return null;
+
                 if (ticket.status === "BOT") return (
                   <span style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{background:"#e2e8ec",color:"#54656f",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento pelo Bot</span>
+                    {canForward && (
+                      <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
+                        <button
+                          onClick={async()=>{await loadAtendentes();setEncaminhandoId(ticket.id);}}
+                          style={{padding:"4px 14px",background:"#5B72E8",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
+                        >Encaminhar ▾</button>
+                        {encaminhandoId===ticket.id&&(
+                          <div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:"#fff",border:"1px solid #e9edef",borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.15)",zIndex:100,minWidth:200}}>
+                            <div style={{padding:"8px 12px",fontSize:12,fontWeight:600,color:"#667781",borderBottom:"1px solid #e9edef"}}>Encaminhar para:</div>
+                            {atendentes.length===0
+                              ? <div style={{padding:"8px 12px",fontSize:12,color:"#8696a0"}}>Nenhum atendente disponível</div>
+                              : atendentes.map(a=>(
+                                  <button key={a.id} onClick={()=>encaminhar(ticket.id,a.id)} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:"pointer",color:"#111b21"}}>
+                                    {a.nome}
+                                  </button>
+                                ))
+                            }
+                            <button onClick={()=>setEncaminhandoId(null)} style={{display:"block",width:"100%",padding:"6px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:12,cursor:"pointer",color:"#8696a0",borderTop:"1px solid #e9edef"}}>
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </span>
                 );
+
                 if (ticket.status === "AGUARDANDO") return (
                   <span style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{background:"#fff3cd",color:"#856404",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Aguardando</span>
-                    {!isReadOnly && <button onClick={()=>assumir(ticket)} style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Assumir</button>}
+                    {canForward ? (
+                      <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
+                        <button
+                          onClick={async()=>{await loadAtendentes();setEncaminhandoId(ticket.id);}}
+                          style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
+                        >Encaminhar ▾</button>
+                        {encaminhandoId===ticket.id&&(
+                          <div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:"#fff",border:"1px solid #e9edef",borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.15)",zIndex:100,minWidth:200}}>
+                            <div style={{padding:"8px 12px",fontSize:12,fontWeight:600,color:"#667781",borderBottom:"1px solid #e9edef"}}>Encaminhar para:</div>
+                            {atendentes.length===0
+                              ? <div style={{padding:"8px 12px",fontSize:12,color:"#8696a0"}}>Nenhum atendente disponível</div>
+                              : atendentes.map(a=>(
+                                  <button key={a.id} onClick={()=>encaminhar(ticket.id,a.id)} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:"pointer",color:"#111b21"}}>
+                                    {a.nome}
+                                  </button>
+                                ))
+                            }
+                            <button onClick={()=>setEncaminhandoId(null)} style={{display:"block",width:"100%",padding:"6px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:12,cursor:"pointer",color:"#8696a0",borderTop:"1px solid #e9edef"}}>
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button onClick={()=>assumir(ticket)} style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Assumir</button>
+                    )}
                   </span>
                 );
+
                 if (ticket.status === "EM_ATENDIMENTO") return (
                   <span style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{background:"#d1ecf1",color:"#0c5460",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento</span>
-                    {!isReadOnly && <button onClick={()=>finalizar(ticket)} style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Finalizar</button>}
+                    {!isReadOnly && String(ticket.atendenteId)===String(userId) && (
+                      <button onClick={()=>finalizar(ticket)} style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Finalizar</button>
+                    )}
                   </span>
                 );
+
                 return null;
               })()}
               <B cls="p-2" ch={<Ico.Phone/>}/><B cls="p-2" ch={<Ico.Search/>}/><B cls="p-2" ch={<Ico.Dots/>}/>
             </div>
           </div>
+
+          {/* Área de mensagens */}
           <div className="flex-1 overflow-y-auto px-[60px] py-4"><div className="max-w-[780px] mx-auto flex flex-col gap-1">
             {(msgs[sel.id]||[]).map(m=>(
               <div key={m.id} className="flex w-full" style={{justifyContent:m.from==="agent"?"flex-end":"flex-start"}}>
                 <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?"#d9fdd3":"#fff",borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:"0 1px .5px rgba(11,20,26,.08)"}}>
-                  <span className="text-sm whitespace-pre-wrap" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{m.text}</span>
-                  <span className="flex items-center justify-end text-[11px] mt-0.5 ml-2 float-right" style={{color:"#667781"}}>{m.time}{m.from==="agent"&&(m.sending ? <Ico.Clock c="#8696a0" s={12}/> : <Ico.DblChk/>)}</span>
+                  <span className="text-sm whitespace-pre-wrap block" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{renderText(m.text)}</span>
+                  <div className="flex items-center justify-end gap-0.5" style={{color:"#667781",fontSize:11,marginTop:2}}>
+                    <span>{m.time}</span>
+                    {m.from==="agent"&&(m.sending ? <Ico.Clock c="#8696a0" s={12}/> : <Ico.DblChk/>)}
+                  </div>
                 </div>
               </div>
             ))}<div ref={ref}/>
           </div></div>
+
+          {/* Área de digitação */}
           {isReadOnly ? (
             <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
-              Modo observador — apenas visualização
+              Modo {userRole === "OBSERVADOR" ? "observador" : "administrador"} — apenas visualização
+            </div>
+          ) : !canSend ? (
+            <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
+              {cantSendReason}
             </div>
           ) : (
             <div className="px-4 py-2" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec"}}>
