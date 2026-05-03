@@ -1,5 +1,7 @@
 # Chatbot EMAP Brisas
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Sistema de atendimento via WhatsApp para a EMAP (Empresa Maranhense de Administração Portuária), desenvolvido durante o programa de residência **BRISAS** em parceria com a UEMA e a SOFTEX.
 
 ---
@@ -366,9 +368,44 @@ http://localhost:3001/api
 
 ---
 
+## 🛡️ Segurança — Checklist para Produção
+
+> ⚠️ **Não publique esta aplicação sem concluir os itens abaixo.**
+
+**Credenciais e segredos:**
+- [ ] Arquivos `.env` e `.env.local` estão no `.gitignore` e **fora do repositório**
+- [ ] `JWT_SECRET` trocado por chave forte gerada aleatoriamente (mínimo 32 bytes)
+- [ ] `EVOLUTION_API_KEY` substituída por chave segura (não usar valores óbvios)
+- [ ] Credenciais do administrador padrão alteradas ou seed removido do código
+- [ ] Senha do banco de dados alterada para algo seguro
+
+**Configuração do servidor:**
+- [ ] CORS restrito ao domínio de produção em `nest/src/main.ts` (remover `origin: true`)
+- [ ] HTTPS habilitado no servidor (nunca expor em HTTP puro)
+- [ ] Instalar `helmet` no NestJS para headers de segurança HTTP: `npm i helmet`
+- [ ] Configurar rate limiting no login para evitar força bruta: `npm i @nestjs/throttler`
+
+**Validação e autorização:**
+- [ ] Substituir `@Body() body: any` por DTOs com `class-validator` nos controllers
+- [ ] Restringir criação de usuários com role `ADMIN` apenas para admins autenticados
+- [ ] Adicionar verificação de propriedade no `PATCH /auth/funcionarios/:id` (evitar IDOR)
+
+**Dependências:**
+- [ ] `npm audit` executado sem vulnerabilidades críticas em `nest/` e `frontend/`
+- [ ] Considerar uso do [Snyk](https://snyk.io) para monitoramento contínuo de dependências
+
+---
 
 ## 🏛️ Sobre o Projeto
 
 Desenvolvido durante o **Programa de Residência BRISAS**
 Parceria: **UEMA × SOFTEX**
 Cliente: **EMAP — Empresa Maranhense de Administração Portuária**
+
+---
+
+## 📄 Licença
+
+Este projeto está licenciado sob a [MIT License](LICENSE).
+
+Copyright (c) 2026 UEMA / SOFTEX — Programa BRISAS

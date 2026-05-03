@@ -1,0 +1,11 @@
+-Acrescentar novas funções ao Observador. Ele deve encaminhar para um atendente. Ao abrir as conversas, as mensagens precisam ir para aba de abertos.
+-Modificar o texto da opção "Trabalhe Conosco": Colocar a opção de "menu anterior"
+-Corrigir as mensagens no frontend: Os links devem ficar clicavel e o textos devem ficar espaçados.
+-Os usuários não devem visualizar o que o BOT conversa, apenas o ADMIN e o ATENDENTE
+- Sugestão de mensagem para opção de atendimento humano: "Estamos transferindo para o atendente".
+-Não permitir responder quando nenhum atendente não tiver assumido
+
+PERGUNTAS FUTURAS PARA EMAP EM RELAÇÃO AO SCRIPT
+
+- É possível modificar a opção "Falar com Analista de Ouvidoria" para colocar por exemplo um atendente?
+- Sobre o nome e email como primeira mensagem 
