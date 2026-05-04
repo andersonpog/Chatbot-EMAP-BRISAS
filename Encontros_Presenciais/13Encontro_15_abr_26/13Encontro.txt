@@ -1,0 +1,4 @@
+- Acrescentar no DASHBOARD uma visualização para o BOT 
+- Resolver o "pisca" da tela. Sugestão: Testar por requisição.
+- Fazer a divisão dos usuários. Resolver quando não for possível um atendente assumir.
+- Estudar uma opção no GitHub sobre a segurança do código.

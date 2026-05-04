@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe, Request, Post, Body } from '@nestjs/common';
 import { AtendimentoService } from './atendimento.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -12,14 +12,15 @@ export class AtendimentoController {
 
   @Get('fila')
   @ApiOperation({ summary: 'Lista passageiros aguardando atendimento humano' })
-  async getFila() {
-    return this.atendimentoService.listarFilaAtiva();
+  async getFila(@Request() req: any) {
+    return this.atendimentoService.listarFilaAtiva(req.user);
   }
 
   @Patch('assumir/:id')
   @ApiOperation({ summary: 'Muda status para EM_ATENDIMENTO' })
-  async assumir(@Param('id', ParseIntPipe) id: number) {
-    return this.atendimentoService.assumirAtendimento(id);
+  async assumir(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    const userId = req.user.sub || req.user.id || req.user.userId;
+    return this.atendimentoService.assumirAtendimento(id, userId); // Envia o ID correto do funcionário
   }
 
   @Patch('finalizar/:id')
@@ -27,4 +28,22 @@ export class AtendimentoController {
   async finalizar(@Param('id', ParseIntPipe) id: number) {
     return this.atendimentoService.finalizarAtendimento(id);
   }
+
+  @Get('atendentes/online')
+@ApiOperation({ summary: 'Lista atendentes disponíveis para assumir atendimento' })
+async listarAtendentesOnline() {
+  return this.atendimentoService.listarAtendentesOnline();
+}
+
+
+ @Post('encaminhar')
+@ApiOperation({ summary: 'Encaminha atendimento para um atendente específico' })
+async encaminhar(
+  @Body() dados: { atendimentoId: number; atendenteId: string },
+  @Request() req: any,
+) {
+  const userId = req.user.sub || req.user.id || req.user.userId;
+  return this.atendimentoService.encaminharAtendimento(dados.atendimentoId, dados.atendenteId, userId);
+}
+
 }
