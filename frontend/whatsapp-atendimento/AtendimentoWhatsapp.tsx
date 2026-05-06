@@ -9,7 +9,7 @@ type Status = "open" | "pending" | "resolved" | "bot";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
 interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null }
-interface Atendente { id: string; nome: string }
+interface Atendente { id: string; nome: string; online?: boolean }
 
 // Evolution API types
 interface EvoMsg {
@@ -234,7 +234,7 @@ export default function WaAtendimento() {
 
   const loadAtendentes = useCallback(async () => {
     try {
-      const res = await fetch("/api/atendimento/atendentes");
+      const res = await fetch("/api/atendimento/atendentes/online");
       if (res.ok) setAtendentes(await res.json());
     } catch {}
   }, []);
@@ -369,55 +369,11 @@ export default function WaAtendimento() {
     }
   };
 
-  // Lista de atendentes onlines e função de encaminhar
-
-const [atendentesOnline, setAtendentesOnline] = useState<any[]>([]);
-
-const loadAtendentesOnline = useCallback(async () => {
-  try {
-    const res = await fetch("/api/atendimento/atendentes/online");
-    if (!res.ok) throw new Error("Erro ao buscar atendentes online");
-    setAtendentesOnline(await res.json());
-  } catch (e) {
-    console.error("Falha ao carregar atendentes:", e);
-  }
-}, []);
-
-useEffect(() => {
-  loadAtendentesOnline();
-}, [loadAtendentesOnline]);
-
-const encaminhar = async (atendimentoId: number, atendenteId: string) => {
-  try {
-    const res = await fetch("/api/atendimento/encaminhar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ atendimentoId, atendenteId, userId }),
-    });
-
-    const data = await res.json();
-
-    if (!data.sucesso) {
-      // mensagem informativa 
-      alert(data.mensagem); 
-      return;
-    }
-
-    // sucesso
-    loadFila();
-
-  } catch (e) {
-    console.error("Falha ao encaminhar:", e);
-    alert("Erro ao encaminhar atendimento");
-  }
-};
 
 
 
 
 
-  const tabData:[Status,string,ReactNode][] = isReadOnly 
-    ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
   // Para ADMIN/OBSERVADOR: "PENDENTES" vira "TRANSFERIDOS" (tickets que saíram do Bot para fila humana)
   const tabData:[Status,string,ReactNode][] = isReadOnly
     ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","TRANSFERIDOS",<Ico.Forward key="t"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
@@ -491,73 +447,6 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
             <div className="flex items-center gap-2">
               {sel.tags?.map(t=><Tag key={t} t={t}/>)}
               {(() => {
-  const ticket = filaDoContato(sel.id);
-  if (!ticket) return null;
-
-  // Etiqueta 
-  const label = ticket.status === "BOT" ? "Em atendimento pelo Bot"
-               : ticket.status === "AGUARDANDO" ? "Aguardando"
-               : ticket.status === "EM_ATENDIMENTO" ? "Em atendimento"
-               : "Resolvido";
-
-  const styleMap:any = {
-    BOT: { bg:"#e2e8ec", fg:"#54656f" },
-    AGUARDANDO: { bg:"#fff3cd", fg:"#856404" },
-    EM_ATENDIMENTO: { bg:"#d1ecf1", fg:"#0c5460" },
-    FINALIZADO: { bg:"#e7f7ef", fg:"#00a884" }
-  };
-
-  const { bg, fg } = styleMap[ticket.status];
-
-  return (
-    <span style={{display:"flex",alignItems:"center",gap:8}}>
-      {/* Etiqueta */}
-      <span style={{ background: bg, color: fg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
-  {label}
-</span>
-
-      {/* Barra de ações condicional */}
-      {userRole === "ATENDENTE" && ticket.status === "AGUARDANDO" && (
-        <button
-          onClick={()=>assumir(ticket)}
-          style={{padding:"4px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8,fontSize:13,fontWeight:600, cursor:"pointer"}}
-        >
-          Assumir
-        </button>
-      )}
-
-      {userRole === "ATENDENTE" && ticket.status === "EM_ATENDIMENTO" && (
-        <button
-          onClick={()=>finalizar(ticket)}
-          style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
-        >
-          Finalizar
-        </button>
-      )}
-
-      {(userRole === "ADMIN" || userRole === "OBSERVADOR") && ticket.status === "AGUARDANDO" && (
-  <select
-  defaultValue=""
-  onChange={e=>{if(e.target.value) encaminhar(ticket.id, e.target.value);}}
-  style={{ padding:"6px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer"}}
->
-  <option value="">Encaminhar para...</option>
-  {atendentesOnline.map(a=>(
-    <option
-      key={a.id}
-      value={a.id}
-      style={{background:"#f9f9f9",color:"#111"}}
-    >
-      {a.online ? "🟢" : "🔴"} {a.nome}
-    </option>
-  ))}
-</select>
-)}
-    </span>
-  );
-})()}
-
-
                 const ticket = filaDoContato(sel.id);
                 if (!ticket) return null;
 
@@ -576,8 +465,8 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
                             {atendentes.length===0
                               ? <div style={{padding:"8px 12px",fontSize:12,color:"#8696a0"}}>Nenhum atendente disponível</div>
                               : atendentes.map(a=>(
-                                  <button key={a.id} onClick={()=>encaminhar(ticket.id,a.id)} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:"pointer",color:"#111b21"}}>
-                                    {a.nome}
+                                  <button key={a.id} onClick={()=>{ if(a.online!==false) encaminhar(ticket.id,a.id); }} disabled={a.online===false} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:a.online===false?"not-allowed":"pointer",color:a.online===false?"#aaa":"#111b21",opacity:a.online===false?0.5:1}}>
+                                    <span style={{marginRight:6}}>{a.online ? "🟢" : "🔴"}</span>{a.nome}
                                   </button>
                                 ))
                             }
@@ -606,8 +495,8 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
                             {atendentes.length===0
                               ? <div style={{padding:"8px 12px",fontSize:12,color:"#8696a0"}}>Nenhum atendente disponível</div>
                               : atendentes.map(a=>(
-                                  <button key={a.id} onClick={()=>encaminhar(ticket.id,a.id)} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:"pointer",color:"#111b21"}}>
-                                    {a.nome}
+                                  <button key={a.id} onClick={()=>{ if(a.online!==false) encaminhar(ticket.id,a.id); }} disabled={a.online===false} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:a.online===false?"not-allowed":"pointer",color:a.online===false?"#aaa":"#111b21",opacity:a.online===false?0.5:1}}>
+                                    <span style={{marginRight:6}}>{a.online ? "🟢" : "🔴"}</span>{a.nome}
                                   </button>
                                 ))
                             }
