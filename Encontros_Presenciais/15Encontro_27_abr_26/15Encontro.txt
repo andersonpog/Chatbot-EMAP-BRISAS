@@ -1,0 +1,7 @@
+- BOT deve ser um usuário. As conversas dele devem ir para os resolvidos (Criar um ID pra ele)
+- Nova visualização para o BOT (ADM/Observador) com transferidos.
+- ADM e OBSERVADOR devem encaminhar para um atendente.
+- Remover o parênteses de um link nas mensagens
+- Ver se as conversas do BOT estão sendo salvas em um ID
+- Arrumar os dois risquinhos azuis das mensagens
+- Não permitir que um atendente mande mensagem quando ainda não assumiu.

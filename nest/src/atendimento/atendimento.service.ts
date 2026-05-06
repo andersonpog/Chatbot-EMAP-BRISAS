@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import { Atendimento } from './entities/atendimento.entity';
 import { Funcionario } from '../auth/entities/funcionario.entity'; // ajuste o caminho conforme sua estrutura
+import { Funcionario } from '../auth/entities/funcionario.entity';
 
 @Injectable()
 export class AtendimentoService {
@@ -12,6 +13,8 @@ export class AtendimentoService {
 
     @InjectRepository(Funcionario)
     private readonly funcionarioRepository: Repository<Funcionario>,
+    @InjectRepository(Funcionario)
+    private readonly funcionarioRepo: Repository<Funcionario>,
   ) {}
 
   // Lista fila ativa + finalizados de hoje (para o front saber mover para "Resolvidos")
@@ -97,3 +100,18 @@ export class AtendimentoService {
 }
 
 
+
+  // Admin/Observador encaminha ticket para um atendente específico
+  async encaminharAtendimento(id: number, atendenteId: string) {
+    return this.atendimentoRepo.update(id, { status: 'EM_ATENDIMENTO', atendenteId });
+  }
+
+  // Lista atendentes ativos para seleção no encaminhamento
+  async listarAtendentes() {
+    return this.funcionarioRepo.find({
+      where: { role: 'ATENDENTE', active: true },
+      select: ['id', 'nome'],
+      order: { nome: 'ASC' },
+    });
+  }
+}

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Atendimento } from './entities/atendimento.entity';
-import { Funcionario } from '../auth/entities/funcionario.entity'; // ajuste o caminho conforme sua estrutura
+import { Funcionario } from '../auth/entities/funcionario.entity';
 import { AtendimentoService } from './atendimento.service';
 import { AtendimentoController } from './atendimento.controller';
 

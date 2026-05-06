@@ -1,10 +1,11 @@
 import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe, Request, Post, Body } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards, ParseIntPipe, Request } from '@nestjs/common';
 import { AtendimentoService } from './atendimento.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('atendimento') // Organiza no Swagger
-@ApiBearerAuth() // Ativa o cadeado do Token no Swagger
+@ApiTags('atendimento')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('atendimento')
 export class AtendimentoController {
@@ -16,11 +17,23 @@ export class AtendimentoController {
     return this.atendimentoService.listarFilaAtiva(req.user);
   }
 
+  @Get('atendentes')
+  @ApiOperation({ summary: 'Lista atendentes ativos para encaminhamento' })
+  async getAtendentes() {
+    return this.atendimentoService.listarAtendentes();
+  }
+
   @Patch('assumir/:id')
   @ApiOperation({ summary: 'Muda status para EM_ATENDIMENTO' })
   async assumir(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     const userId = req.user.sub || req.user.id || req.user.userId;
-    return this.atendimentoService.assumirAtendimento(id, userId); // Envia o ID correto do funcionário
+    return this.atendimentoService.assumirAtendimento(id, userId);
+  }
+
+  @Patch('encaminhar/:id')
+  @ApiOperation({ summary: 'Admin/Observador encaminha ticket para atendente específico' })
+  async encaminhar(@Param('id', ParseIntPipe) id: number, @Body() body: { atendenteId: string }) {
+    return this.atendimentoService.encaminharAtendimento(id, body.atendenteId);
   }
 
   @Patch('finalizar/:id')
@@ -46,4 +59,5 @@ async encaminhar(
   return this.atendimentoService.encaminharAtendimento(dados.atendimentoId, dados.atendenteId, userId);
 }
 
+}
 }
