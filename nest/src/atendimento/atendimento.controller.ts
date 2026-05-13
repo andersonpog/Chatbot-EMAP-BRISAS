@@ -2,13 +2,17 @@ import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe, Request, Post, 
 import { AtendimentoService } from './atendimento.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { EvolutionGateway } from '../evolution/evolution.gateway';
 
 @ApiTags('atendimento') // Organiza no Swagger
 @ApiBearerAuth() // Ativa o cadeado do Token no Swagger
 @UseGuards(JwtAuthGuard)
 @Controller('atendimento')
 export class AtendimentoController {
-  constructor(private readonly atendimentoService: AtendimentoService) {}
+  constructor(
+    private readonly atendimentoService: AtendimentoService,
+    private readonly evolutionGateway: EvolutionGateway,
+  ) {}
 
   @Get('fila')
   @ApiOperation({ summary: 'Lista passageiros aguardando atendimento humano' })
@@ -20,13 +24,17 @@ export class AtendimentoController {
   @ApiOperation({ summary: 'Muda status para EM_ATENDIMENTO' })
   async assumir(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     const userId = req.user.sub || req.user.id || req.user.userId;
-    return this.atendimentoService.assumirAtendimento(id, userId); // Envia o ID correto do funcionário
+    const resultado = await this.atendimentoService.assumirAtendimento(id, userId); // Envia o ID correto do funcionário
+    this.evolutionGateway.emitirNovaMensagem(); // Dispara o websocket para atualizar a tela de todos
+    return resultado;
   }
 
   @Patch('finalizar/:id')
   @ApiOperation({ summary: 'Finaliza o ticket e libera o robô para este usuário' })
   async finalizar(@Param('id', ParseIntPipe) id: number) {
-    return this.atendimentoService.finalizarAtendimento(id);
+    const resultado = await this.atendimentoService.finalizarAtendimento(id);
+    this.evolutionGateway.emitirNovaMensagem(); // Dispara o websocket para atualizar a tela de todos
+    return resultado;
   }
 
   @Get('atendentes/online')
@@ -43,7 +51,9 @@ async encaminhar(
   @Request() req: any,
 ) {
   const userId = req.user.sub || req.user.id || req.user.userId;
-  return this.atendimentoService.encaminharAtendimento(dados.atendimentoId, dados.atendenteId, userId);
+    const resultado = await this.atendimentoService.encaminharAtendimento(dados.atendimentoId, dados.atendenteId, userId);
+    this.evolutionGateway.emitirNovaMensagem(); // Dispara o websocket para atualizar a tela de todos
+    return resultado;
 }
 
 }

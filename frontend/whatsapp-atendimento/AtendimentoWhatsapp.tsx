@@ -233,7 +233,10 @@ export default function WaAtendimento() {
     loadMessages(true); // Carrega a primeira vez mostrando o layout de "Carregando..."
     
     // Conecta ao WebSocket do NestJS
-    const socket = io("http://localhost:3001");
+    const backendUrl = typeof window !== 'undefined' 
+      ? `http://${window.location.hostname}:3001`
+      : 'http://localhost:3001';
+    const socket = io(backendUrl);
     socket.on("nova_mensagem", () => {
       loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
       loadFila(); // Aproveita e atualiza a fila instantaneamente também!
@@ -402,7 +405,14 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
       {/* Sidebar */}
       <aside className="flex flex-col border-r" style={{width:320,minWidth:320,backgroundColor:"#fff",borderColor:"#e9edef"}}>
         <div className="flex items-center justify-between px-4 py-2.5" style={{backgroundColor:"#f0f2f5",borderBottom:"1px solid #e9edef"}}>
-          <span className="font-semibold text-sm" style={{color:"#3b4a54"}}>{userName} ▾</span>
+          <div className="flex items-center gap-2">
+            {userRole === "ADMIN" && (
+              <button onClick={() => router.push('/admin/dashboard')} className="flex items-center justify-center cursor-pointer border-none bg-transparent hover:opacity-70 transition-opacity" title="Voltar ao Painel">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#54656f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+              </button>
+            )}
+            <span className="font-semibold text-sm" style={{color:"#3b4a54"}}>{userName} ▾</span>
+          </div>
           <div className="flex gap-0.5">{[Ico.Chat,Ico.Cal,Ico.Home].map((I,i)=><B key={i} cls="p-2 rounded-lg" ch={<I c="#54656f"/>}/>)}</div>
         </div>
         <div className="flex gap-1 px-4 pt-2">

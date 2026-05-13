@@ -10,6 +10,6 @@ import { EvolutionGateway } from './evolution.gateway';
   imports: [TypeOrmModule.forFeature([Atendimento]), HttpModule],
   providers: [EvolutionService, EvolutionGateway],
   controllers: [EvolutionController],
-  exports: [EvolutionService], // Exporta se quiser usar em outros módulos
+  exports: [EvolutionService, EvolutionGateway], // Exporta se quiser usar em outros módulos
 })
 export class EvolutionModule {}
