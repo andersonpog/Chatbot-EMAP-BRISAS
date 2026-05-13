@@ -43,25 +43,34 @@ export class EvolutionController {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       let atendimentoAtivo = await this.atendimentoRepo.findOne({
-      where: { remoteJid, status: In(['AGUARDANDO', 'EM_ATENDIMENTO']) }
-    });
-
-    if (atendimentoAtivo) {
-      console.log(`🟡 Usuário ${nome} está com humano. Robô em silêncio.`);
-      return { status: 200 }; // Sai sem responder nada
-    }
-
-    // Se não está com humano, garante que existe um ticket BOT ativo para o Front-end
-    let ticketBot = await this.atendimentoRepo.findOne({
-      where: { remoteJid, status: 'BOT' }
-    });
-    if (!ticketBot) {
-      await this.atendimentoRepo.save({
-        remoteJid,
-        nome,
-        status: 'BOT'
+        where: { remoteJid, status: In(['AGUARDANDO', 'EM_ATENDIMENTO']) },
+        order: { dataCriacao: 'DESC' }
       });
-    }
+
+      // Se existe ticket na fila (AGUARDANDO) ou sendo atendido por um humano (EM_ATENDIMENTO sem ser o bot)
+      if (atendimentoAtivo && atendimentoAtivo.atendenteId !== 'bot') {
+        console.log(`🟡 Usuário ${nome} está com humano ou na fila. Robô em silêncio.`);
+        return { status: 200 }; // Sai sem responder nada
+      }
+
+      let ticketBot = atendimentoAtivo && atendimentoAtivo.atendenteId === 'bot' ? atendimentoAtivo : null;
+
+      if (!ticketBot) {
+        // Tenta achar um ticket antigo com status legado 'BOT' para compatibilidade
+        ticketBot = await this.atendimentoRepo.findOne({
+          where: { remoteJid, status: 'BOT' },
+          order: { dataCriacao: 'DESC' }
+        });
+
+        if (!ticketBot) {
+          ticketBot = await this.atendimentoRepo.save({
+            remoteJid,
+            nome,
+            status: 'EM_ATENDIMENTO',
+            atendenteId: 'bot'
+          });
+        }
+      }
 
       // Recupera ou define o estado inicial
       let estadoAtual = estadosUsuarios[remoteJid] || 'INICIO';
@@ -120,17 +129,15 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'AGUARDANDO_SUB_OPCAO';
           }
           else if (textoRecebido === '4') {
-            // Atualiza o ticket do Bot para a fila de espera (Aguardando humano)
-            const ticketAtual = await this.atendimentoRepo.findOne({ where: { remoteJid, status: 'BOT' } });
-            if (ticketAtual) {
-              await this.atendimentoRepo.update(ticketAtual.id, { status: 'AGUARDANDO' });
-            } else {
-              await this.atendimentoRepo.save({
-                remoteJid,
-                nome,
-                status: 'AGUARDANDO'
-              });
+            // Finaliza o atendimento do bot e cria um novo ticket para o Humano
+            if (ticketBot) {
+              await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
             }
+            await this.atendimentoRepo.save({
+              remoteJid,
+              nome,
+              status: 'AGUARDANDO'
+            });
 
             await this.evolutionService.enviarMensagem(
               instance, 
@@ -147,8 +154,7 @@ export class EvolutionController {
             );
             delete estadosUsuarios[remoteJid];
 
-            const ticketAtual = await this.atendimentoRepo.findOne({ where: { remoteJid, status: 'BOT' } });
-            if (ticketAtual) await this.atendimentoRepo.update(ticketAtual.id, { status: 'FINALIZADO' });
+            if (ticketBot) await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
           } 
           else {
             await this.evolutionService.enviarMensagem(
@@ -264,8 +270,7 @@ export class EvolutionController {
             delete estadosUsuarios[remoteJid];
             delete estadoRetorno[remoteJid];
 
-            const ticketAtual = await this.atendimentoRepo.findOne({ where: { remoteJid, status: 'BOT' } });
-            if (ticketAtual) await this.atendimentoRepo.update(ticketAtual.id, { status: 'FINALIZADO' });
+            if (ticketBot) await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
           } else {
             await this.evolutionService.enviarMensagem(
               instance,

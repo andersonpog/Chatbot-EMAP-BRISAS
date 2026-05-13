@@ -5,10 +5,11 @@ import { io } from "socket.io-client";
 
 // Chamadas passam pelo proxy Next.js (sem CORS, sem expor credenciais no browser)
 
+
 type Status = "open" | "pending" | "resolved" | "bot";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
-interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null }
+interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null; atendenteNome?: string }
 
 // Evolution API types
 interface EvoMsg {
@@ -264,7 +265,7 @@ export default function WaAtendimento() {
   const statusDoContato = (jid: string): Status | null => {
     const ticket = filaDoContato(jid);
     if (!ticket) return (userRole === "ADMIN" || userRole === "OBSERVADOR") ? "bot" : null;
-    if (ticket.status === "BOT") return "bot";
+    if (ticket.status === "BOT" || (ticket.status === "EM_ATENDIMENTO" && ticket.atendenteId === "bot")) return "bot";
     if (ticket.status === "AGUARDANDO") return "pending";
     if (ticket.status === "EM_ATENDIMENTO") return "open";
     if (ticket.status === "FINALIZADO") return "resolved";
@@ -444,7 +445,18 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color:"#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color:"#667781"}}>{c.time}</span></div>
                 <div className="flex justify-between items-center"><span className="text-[13px] truncate max-w-[170px]" style={{color:"#667781"}}>{c.lastMsg}</span>{c.unread>0&&<span className="w-5 h-5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{c.unread}</span>}</div>
-                {(() => { const t = filaDoContato(c.id); if (!t) return null; const label = t.status==="BOT"?"Bot":t.status==="AGUARDANDO"?"Aguardando":t.status==="EM_ATENDIMENTO"?"Em atendimento":"Resolvido"; const bg = t.status==="BOT"?"#e2e8ec":t.status==="AGUARDANDO"?"#fff3cd":t.status==="EM_ATENDIMENTO"?"#d1ecf1":"#e7f7ef"; const fg = t.status==="BOT"?"#54656f":t.status==="AGUARDANDO"?"#856404":t.status==="EM_ATENDIMENTO"?"#0c5460":"#00a884"; return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:bg,color:fg}}>{label}</span></div>; })()}
+                {(() => { 
+                  const t = filaDoContato(c.id); 
+                  if (!t) return null; 
+                  const isBot = t.atendenteId === "bot" || t.status === "BOT";
+                  if (isBot) return null; // Oculta a tag redundante do bot na lista
+                  
+                  const label = t.status === "AGUARDANDO" ? "Aguardando" : t.status === "EM_ATENDIMENTO" ? t.atendenteNome : "Resolvido"; 
+                  if (!label) return null;
+                  const bg = isBot ? "#e2e8ec" : t.status === "AGUARDANDO" ? "#fff3cd" : t.status === "EM_ATENDIMENTO" ? "#d1ecf1" : "#e7f7ef"; 
+                  const fg = isBot ? "#54656f" : t.status === "AGUARDANDO" ? "#856404" : t.status === "EM_ATENDIMENTO" ? "#0c5460" : "#00a884"; 
+                  return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:bg,color:fg}}>{label}</span></div>; 
+                })()}
                 {c.tags&&<div className="flex gap-1 mt-1">{c.tags.map(t=><Tag key={t} t={t}/>)}</div>}
               </div>
             </button>
@@ -472,10 +484,10 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
   const ticket = filaDoContato(sel.id);
   if (!ticket) return null;
 
-  // Etiqueta 
-  const label = ticket.status === "BOT" ? "Em atendimento pelo Bot"
+  const isBot = ticket.atendenteId === "bot" || ticket.status === "BOT";
+  const label = isBot ? null // Oculta a tag redundante do bot no cabeçalho
                : ticket.status === "AGUARDANDO" ? "Aguardando"
-               : ticket.status === "EM_ATENDIMENTO" ? "Em atendimento"
+               : ticket.status === "EM_ATENDIMENTO" ? (ticket.atendenteNome ? `Atendido por: ${ticket.atendenteNome}` : null)
                : "Resolvido";
 
   const styleMap:any = {
@@ -485,14 +497,17 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
     FINALIZADO: { bg:"#e7f7ef", fg:"#00a884" }
   };
 
-  const { bg, fg } = styleMap[ticket.status];
+  const currentStatus = isBot ? "BOT" : ticket.status;
+  const { bg, fg } = styleMap[currentStatus] || styleMap["FINALIZADO"];
 
   return (
     <span style={{display:"flex",alignItems:"center",gap:8}}>
       {/* Etiqueta */}
-      <span style={{ background: bg, color: fg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
-  {label}
-</span>
+      {label && (
+        <span style={{ background: bg, color: fg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
+          {label}
+        </span>
+      )}
 
       {/* Barra de ações condicional */}
       {userRole === "ATENDENTE" && ticket.status === "AGUARDANDO" && (
@@ -504,7 +519,7 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
         </button>
       )}
 
-      {userRole === "ATENDENTE" && ticket.status === "EM_ATENDIMENTO" && (
+      {userRole === "ATENDENTE" && ticket.status === "EM_ATENDIMENTO" && !isBot && (
         <button
           onClick={()=>finalizar(ticket)}
           style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
@@ -557,7 +572,7 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
             <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
               {statusDoContato(sel.id) === "resolved" ? "Atendimento encerrado — não é possível enviar mensagens." :
                statusDoContato(sel.id) === "pending" ? "Assuma o atendimento para enviar mensagens." :
-               statusDoContato(sel.id) === "bot" ? "Em atendimento pelo Bot — assuma para enviar mensagens." :
+               statusDoContato(sel.id) === "bot" ? "Em atendimento pelo Bot. O usuário precisa solicitar um atendente." :
                "Atendimento indisponível no momento."}
             </div>
           ) : (

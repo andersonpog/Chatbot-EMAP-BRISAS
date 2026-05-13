@@ -11,7 +11,7 @@ import { EvolutionGateway } from '../evolution/evolution.gateway';
 export class AtendimentoController {
   constructor(
     private readonly atendimentoService: AtendimentoService,
-    private readonly evolutionGateway: EvolutionGateway,
+    private readonly evolutionGateway: EvolutionGateway
   ) {}
 
   @Get('fila')
@@ -25,7 +25,7 @@ export class AtendimentoController {
   async assumir(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     const userId = req.user.sub || req.user.id || req.user.userId;
     const resultado = await this.atendimentoService.assumirAtendimento(id, userId); // Envia o ID correto do funcionário
-    this.evolutionGateway.emitirNovaMensagem(); // Dispara o websocket para atualizar a tela de todos
+    this.evolutionGateway.emitirNovaMensagem();
     return resultado;
   }
 
@@ -33,7 +33,7 @@ export class AtendimentoController {
   @ApiOperation({ summary: 'Finaliza o ticket e libera o robô para este usuário' })
   async finalizar(@Param('id', ParseIntPipe) id: number) {
     const resultado = await this.atendimentoService.finalizarAtendimento(id);
-    this.evolutionGateway.emitirNovaMensagem(); // Dispara o websocket para atualizar a tela de todos
+    this.evolutionGateway.emitirNovaMensagem();
     return resultado;
   }
 
@@ -52,7 +52,7 @@ async encaminhar(
 ) {
   const userId = req.user.sub || req.user.id || req.user.userId;
     const resultado = await this.atendimentoService.encaminharAtendimento(dados.atendimentoId, dados.atendenteId, userId);
-    this.evolutionGateway.emitirNovaMensagem(); // Dispara o websocket para atualizar a tela de todos
+    this.evolutionGateway.emitirNovaMensagem();
     return resultado;
 }
 

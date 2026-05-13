@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, In } from 'typeorm';
 import { Atendimento } from './entities/atendimento.entity';
 import { Funcionario } from '../auth/entities/funcionario.entity'; // ajuste o caminho conforme sua estrutura
 
@@ -27,11 +27,23 @@ export class AtendimentoService {
            .orWhere('a.status = :fin AND a.dataCriacao >= :hoje', { fin: 'FINALIZADO', hoje });
     } else {
       query.where('a.status IN (:aguardando, :bot)', { aguardando: 'AGUARDANDO', bot: 'BOT' })
-           .orWhere('(a.status = :emAtendimento AND (a.atendenteId = :userId OR a.atendenteId IS NULL))', { emAtendimento: 'EM_ATENDIMENTO', userId })
-           .orWhere('(a.status = :fin AND (a.atendenteId = :userId OR a.atendenteId IS NULL) AND a.dataCriacao >= :hoje)', { fin: 'FINALIZADO', userId, hoje });
+           .orWhere('(a.status = :emAtendimento AND (a.atendenteId = :userId OR a.atendenteId = :botId OR a.atendenteId IS NULL))', { emAtendimento: 'EM_ATENDIMENTO', userId, botId: 'bot' })
+           .orWhere('(a.status = :fin AND (a.atendenteId = :userId OR a.atendenteId = :botId OR a.atendenteId IS NULL) AND a.dataCriacao >= :hoje)', { fin: 'FINALIZADO', userId, botId: 'bot', hoje });
     }
 
-    return query.orderBy('a.dataCriacao', 'ASC').getMany();
+    // Busca ordenado por data DESC para que o front pegue sempre o ticket mais recente para o contato
+    const fila = await query.orderBy('a.dataCriacao', 'DESC').getMany();
+
+    const atendentesIds = fila.map(f => f.atendenteId).filter(id => id && id !== 'bot');
+    let funcionarios: Funcionario[] = [];
+    if (atendentesIds.length > 0) {
+      funcionarios = await this.funcionarioRepository.find({ where: { id: In(atendentesIds) } });
+    }
+
+    return fila.map(f => {
+      const func = funcionarios.find(fn => String(fn.id) === String(f.atendenteId));
+      return { ...f, atendenteNome: func ? func.nome : (f.atendenteId === 'bot' ? 'Bot' : null) };
+    });
   }
 
   // Muda o status para o robô saber que pode voltar a responder esse JID
@@ -95,5 +107,3 @@ export class AtendimentoService {
 
 
 }
-
-
