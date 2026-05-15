@@ -273,10 +273,22 @@ export default function WaAtendimento() {
   };
 
   const assumir = async (item: FilaItem) => {
-    await fetch(`/api/atendimento/${item.id}`, {
+    const response = await fetch(`/api/atendimento/${item.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "assumir" }),
+      body: JSON.stringify({ acao: "assumir"}),
     });
+
+    const data = await response.json();
+
+          await fetch("/api/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+          number: item.remoteJid,
+          text: `Olá, meu nome é ${data.nome} e vou seguir com seu atendimento.`,
+              }),
+              });
+
     loadFila();
   };
 

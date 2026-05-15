@@ -6,6 +6,7 @@ import { Atendimento } from '../atendimento/entities/atendimento.entity';
 import { BotMessages } from '../../messages';
 import { EvolutionGateway } from './evolution.gateway';
 
+
 // Controle de estado simples em memória
 const estadosUsuarios = {}; 
 const estadoRetorno = {};
@@ -127,6 +128,7 @@ export class EvolutionController {
               BotMessages.RESPOSTA_COMERCIAL
             );
             estadosUsuarios[remoteJid] = 'AGUARDANDO_SUB_OPCAO';
+            estadoRetorno[remoteJid] = 'MENU_PRINCIPAL'
           }
           else if (textoRecebido === '4') {
             // Finaliza o atendimento do bot e cria um novo ticket para o Humano
@@ -134,17 +136,17 @@ export class EvolutionController {
               await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
             }
             await this.atendimentoRepo.save({
-              remoteJid,
-              nome,
-              status: 'AGUARDANDO'
-            });
+             remoteJid,
+             nome,
+            status: 'AGUARDANDO',
+          });
 
-            await this.evolutionService.enviarMensagem(
-              instance, 
-              remoteJid, 
-              BotMessages.ANALISTA_OUVIDORIA
-            );
-            estadosUsuarios[remoteJid] = 'AGUARDANDO_ANALISTA';
+           await this.evolutionService.enviarMensagem(
+             instance, 
+             remoteJid, 
+            BotMessages.ANALISTA_OUVIDORIA)
+            ;
+           estadosUsuarios[remoteJid] = 'AGUARDANDO_ANALISTA';
           }
           else if (textoRecebido === '0') {
             await this.evolutionService.enviarMensagem(
@@ -160,7 +162,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages.OPCAO_INVALIDA
+              BotMessages[estadoAtual]
             );
           }
         }
@@ -195,7 +197,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages.OPCAO_INVALIDA
+              BotMessages[estadoAtual]
             );
           }
         }
@@ -246,13 +248,13 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.OPCAO_INVALIDA
+              BotMessages[estadoAtual]
             );
           }
         }
 
         // --- OPÇÕES FINAIS (RETORNAR AO MENU INICIAL OU ENCERRAR) ---
-        else if (['TRABALHE_CONOSCO_OPCAO', 'ESTAGIO_OPCAO', 'JOVEM_APRENDIZ_OPCAO', 'AGENDAR_VISITA', 'REAGENDAR_CANCELAR_VISITA', 'AGUARDANDO_SUB_OPCAO'].includes(estadoAtual)) {
+        else if (['TRABALHE_CONOSCO_OPCAO', 'ESTAGIO_OPCAO', 'JOVEM_APRENDIZ_OPCAO', 'AGENDAR_VISITA', 'REAGENDAR_CANCELAR_VISITA'].includes(estadoAtual)) {
           if (textoRecebido === '1') {
             const retorno = estadoRetorno[remoteJid] || 'MENU_PRINCIPAL';
             estadosUsuarios[remoteJid] = retorno;
@@ -279,6 +281,25 @@ export class EvolutionController {
             );
           }
         }
+
+        // OPÇÃO COMERCIAL 
+else if (estadoAtual === 'AGUARDANDO_SUB_OPCAO') {
+  if (textoRecebido === '1') {
+    estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
+    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.MENU_PRINCIPAL);
+  } else if (textoRecebido === '0') {
+    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.DESPEDIDA);
+    delete estadosUsuarios[remoteJid];
+    delete estadoRetorno[remoteJid];
+    if (ticketBot) await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
+  } else {
+    await this.evolutionService.enviarMensagem(
+      instance,
+      remoteJid,
+      BotMessages.OPCAO_INVALIDA
+    );
+  }
+}
 
       } catch (error) {
         console.error('Erro no fluxo de atendimento:', error.message);

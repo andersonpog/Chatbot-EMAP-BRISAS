@@ -53,7 +53,15 @@ export class AtendimentoService {
 
   // Para o atendente "assumir" o ticket no Front-end
   async assumirAtendimento(id: number, atendenteId: string) {
-    return this.atendimentoRepo.update(id, { status: 'EM_ATENDIMENTO', atendenteId });
+    await this.atendimentoRepo.update(id, { status: 'EM_ATENDIMENTO', atendenteId });
+
+     const atendente = await this.funcionarioRepository.findOne({
+    where: { id: atendenteId },
+  });
+
+  return {
+    nome: atendente?.nome,
+  };
   }
 // Encaminhar e Lista de atendentes online
   async listarAtendentesOnline() {
