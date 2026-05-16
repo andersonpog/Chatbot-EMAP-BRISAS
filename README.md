@@ -154,6 +154,9 @@ Acesse: [http://localhost:3000](http://localhost:3000)
 
 Na primeira inicialização, o sistema verifica se existe algum administrador cadastrado. Caso não exista, **um administrador padrão é criado automaticamente com credenciais definidas no código**.
 
+- Usuário: `admin@admin.com`
+- Senha: 123456
+
 > ⚠️ **ATENÇÃO — Antes de ir para produção:**
 > - Altere imediatamente as credenciais do administrador padrão pelo painel `/admin/usuarios`
 > - Considere remover o seed automático em `nest/src/auth/auth.service.ts` e criar o primeiro admin manualmente via endpoint `POST /auth/registrar`
@@ -170,6 +173,7 @@ Na primeira inicialização, o sistema verifica se existe algum administrador ca
 - Redirecionamento automático conforme o perfil:
   - **ADMIN** → `/admin/dashboard`
   - **ATENDENTE** → `/atendimento`
+  - **OBSERVADOR** → `/atendimento`
 
 ---
 
@@ -179,7 +183,7 @@ Acessível apenas para usuários com perfil **ADMIN**.
 
 #### Dashboard (`/admin/dashboard`)
 
-Visão geral do sistema com 4 cards de métricas:
+Visão geral do sistema com 6 cards de métricas:
 
 | Card | Descrição |
 | :--- | :--- |
@@ -187,6 +191,8 @@ Visão geral do sistema com 4 cards de métricas:
 | Usuários ativos | Funcionários com status `ativo = true` |
 | Administradores | Usuários com perfil ADMIN |
 | Atendentes | Usuários com perfil ATENDENTE |
+| Observadores | Usuários com perfil OBSERVADOR |
+| Uptime do sistema | Duração da sessão ativa |
 
 ---
 
@@ -207,8 +213,10 @@ Gerenciamento completo de funcionários do sistema.
 
 | Perfil | Descrição |
 | :--- | :--- |
-| `ATENDENTE` | Acessa apenas a tela de atendimento |
-| `ADMIN` | Acessa o painel administrativo completo |
+| `ATENDENTE` | Acessa apenas a tela de atendimento e assume os atendimentos |
+| `ADMIN` | Acessa o painel administrativo completo e pode encaminhar atendimentos para um atendente |
+| `OBSERVADOR`| Acessa a tela de atendimento (igual ao ADMIN), mas sem permissões administrativas; pode encaminhar atendimentos para um atendente |
+
 
 ---
 
@@ -237,9 +245,9 @@ Quando um cliente é encaminhado pelo robô para atendimento humano, aparece aut
 - **Finalizar** — marca como `FINALIZADO` (robô volta a responder o usuário)
 - A fila atualiza automaticamente a cada **8 segundos**
 
-**Modo Observador (ADMIN):**
+**Modo Observador (ADMIN/OBSERVADOR):**
 
-Administradores acessam a tela de atendimento em modo somente leitura:
+Administradores e Observadores acessam a tela de atendimento em modo somente leitura:
 - Visualizam todas as conversas e status da fila
 - **Não** podem enviar mensagens
 - **Não** podem assumir ou finalizar tickets
@@ -262,6 +270,8 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 | `POST` | `/auth/registrar` | `{"nome":"...","email":"...","senha":"...","role":"ATENDENTE"}` | Cria novo funcionário | **Sim** |
 | `GET` | `/auth/funcionarios` | — | Lista todos os funcionários | **Sim** |
 | `PATCH` | `/auth/funcionarios/:id` | `{"nome":"...","role":"...","active":true}` | Atualiza dados ou status do funcionário | **Sim** |
+| `POST`| `/auth/heartbeat` | — | Atualiza o campo lastSeen do funcionário, registrando o último momento em que esteve ativo no sistema | Não |
+| `GET`| `/auth/uptime` | — | Retorna o tempo que o servidor está em execução contínua | Não|
 | `GET` | `/auth/perfil` | — | Retorna dados do usuário autenticado | **Sim** |
 
 ---
@@ -273,6 +283,9 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 | `GET` | `/atendimento/fila` | — | Lista tickets com status `AGUARDANDO` ou `EM_ATENDIMENTO` | **Sim** |
 | `PATCH` | `/atendimento/assumir/:id` | `:id` | Muda status para `EM_ATENDIMENTO` | **Sim** |
 | `PATCH` | `/atendimento/finalizar/:id` | `:id` | Muda status para `FINALIZADO`, libera o robô | **Sim** |
+| `GET` | `/atendimento/atendentes/online `| — | Lista atendentes disponíveis para assumir atendimento | **Sim** |
+| `POST`| `/atendimento/encaminhar ` | — |Encaminha um atendimento para um atendente específico | **Sim** | 
+
 
 ---
 
@@ -290,7 +303,7 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 
 | Tabela | Descrição |
 | :--- | :--- |
-| `Funcionarios` | Usuários do sistema (atendentes e admins) |
+| `Funcionarios` | Usuários do sistema (atendentes, observadores e admins) |
 | `atendimentos` | Fila de atendimento humano |
 
 ### Estrutura — `Funcionarios`
@@ -304,16 +317,20 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 | `role` | varchar | `ADMIN` ou `ATENDENTE` |
 | `active` | boolean | Status ativo/inativo (padrão: `true`) |
 | `createdAt` | timestamp | Data de criação |
+| `lastSeen`| timestamp | Data e hora da última atividade do usuário no sistema |
+
 
 ### Estrutura — `atendimentos`
 
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
-| `id` | serial | Identificador único |
+| `id` | integer | Identificador único |
 | `remoteJid` | varchar | ID do WhatsApp do cliente |
 | `nome` | varchar | Nome do cliente |
 | `status` | varchar | `AGUARDANDO`, `EM_ATENDIMENTO` ou `FINALIZADO` |
 | `dataCriacao` | timestamp | Data de entrada na fila |
+| `atendenteId` | text | Identificador do atendente responsável pelo atendimento |
+
 
 ---
 
