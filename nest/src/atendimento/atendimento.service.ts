@@ -109,6 +109,8 @@ export class AtendimentoService {
 
   return {
     sucesso: true,
+    remoteJid: atendimento.remoteJid,
+    nomeAtendente: atendente.nome,
     mensagem: `Atendimento ${atendimentoId} encaminhado para atendente ${atendente.nome} por usuário ${userId}`,
   };
 }

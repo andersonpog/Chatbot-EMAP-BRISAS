@@ -389,6 +389,16 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
       return;
     }
 
+    await fetch("/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+      number: data.remoteJid,
+      text: `Olá, meu nome é ${data.nomeAtendente} e vou seguir com seu atendimento.`,
+          }),
+        });
+
+
     // sucesso
     loadFila();
 
