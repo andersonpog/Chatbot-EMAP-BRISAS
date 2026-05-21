@@ -239,9 +239,15 @@ export default function WaAtendimento() {
       : 'http://localhost:3001';
     const socket = io(backendUrl);
     socket.on("nova_mensagem", () => {
-      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
       loadFila(); // Aproveita e atualiza a fila instantaneamente também!
+      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
+
+      // O encaminhamento avisa a mudança de fila antes da mensagem de apresentação
+      // terminar de ser enviada pela Evolution. Recarrega mais uma vez para cobrir essa corrida.
+      window.setTimeout(() => loadMessages(false), 2500);
+      window.setTimeout(() => loadMessages(false), 6000);
     });
+
 
     return () => {
       socket.disconnect();
@@ -254,17 +260,23 @@ export default function WaAtendimento() {
 
 
   const filaDoContato = (jid: string) => {
-    // Prioriza encontrar um ticket que ainda está rolando (Aguardando ou Em Atendimento)
-    const ativo = fila.find(f => f.remoteJid === jid && f.status !== "FINALIZADO");
-    if (ativo) return ativo;
-    // Se não tiver ativo, puxa o ticket finalizado mais recente pra saber quem foi o atendente
-    return fila.find(f => f.remoteJid === jid && f.status === "FINALIZADO") ?? null;
+    return fila.find(f => f.remoteJid === jid) ?? null;
   };
 
   // Deriva o status da aba com base na fila
   const statusDoContato = (jid: string): Status | null => {
     const ticket = filaDoContato(jid);
     if (!ticket) return (userRole === "ADMIN" || userRole === "OBSERVADOR") ? "bot" : null;
+
+    if (userRole === "ATENDENTE") {
+      const atendenteDoTicket = ticket.atendenteId == null ? null : String(ticket.atendenteId);
+      const usuarioAtual = userId == null ? null : String(userId);
+
+      if (ticket.status === "BOT" || atendenteDoTicket === "bot") return null;
+      if (ticket.status === "EM_ATENDIMENTO" && (!usuarioAtual || atendenteDoTicket !== usuarioAtual)) return null;
+      if (ticket.status === "FINALIZADO" && (!usuarioAtual || atendenteDoTicket !== usuarioAtual)) return null;
+    }
+
     if (ticket.status === "BOT" || (ticket.status === "EM_ATENDIMENTO" && ticket.atendenteId === "bot")) return "bot";
     if (ticket.status === "AGUARDANDO") return "pending";
     if (ticket.status === "EM_ATENDIMENTO") return "open";
@@ -272,22 +284,72 @@ export default function WaAtendimento() {
     return null;
   };
 
+  useEffect(() => {
+    if (!selId) return;
+    if (statusDoContato(selId) === null) setSelId(null);
+  }, [fila, selId, userId, userRole]);
+
   const assumir = async (item: FilaItem) => {
     const response = await fetch(`/api/atendimento/${item.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ acao: "assumir"}),
     });
 
     const data = await response.json();
 
-          await fetch("/api/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-          number: item.remoteJid,
-          text: `Olá, meu nome é ${data.nome} e vou seguir com seu atendimento.`,
+    if (!data.sucesso) {
+      alert(data.mensagem || "Esse atendimento não está mais disponível.");
+      loadFila();
+      return;
+    }
+
+    const texto = `Olá, meu nome é ${data.nome} e vou seguir com seu atendimento.`;
+
+    await fetch("/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        number: item.remoteJid,
+        text: texto
+      }),
+    });
+
+    //atualiza a mensagem no card lateral
+    setContacts((p) =>
+      p.map((c) =>
+        c.id === item.remoteJid
+          ? {
+              ...c,
+              lastMsg: texto,
+              time: new Date().toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
               }),
-              });
+            }
+          : c
+      )
+    );
+
+    if (sel) {
+      setMsgs((p) => ({
+        ...p,
+        [sel.id]: [
+          ...(p[sel.id] || []),
+          {
+            id: `m${Date.now()}`,
+            cid: sel.id,
+            text: texto,
+            time: new Date().toLocaleTimeString("pt-BR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            from: "agent",
+            sending: false,
+          },
+        ],
+      }));
+    }
 
     loadFila();
   };
@@ -357,58 +419,92 @@ export default function WaAtendimento() {
 
   // Lista de atendentes onlines e função de encaminhar
 
-const [atendentesOnline, setAtendentesOnline] = useState<any[]>([]);
+  const [atendentesOnline, setAtendentesOnline] = useState<any[]>([]);
 
-const loadAtendentesOnline = useCallback(async () => {
-  try {
-    const res = await fetch("/api/atendimento/atendentes/online");
-    if (!res.ok) throw new Error("Erro ao buscar atendentes online");
-    setAtendentesOnline(await res.json());
-  } catch (e) {
-    console.error("Falha ao carregar atendentes:", e);
-  }
-}, []);
-
-useEffect(() => {
-  loadAtendentesOnline();
-}, [loadAtendentesOnline]);
-
-const encaminhar = async (atendimentoId: number, atendenteId: string) => {
-  try {
-    const res = await fetch("/api/atendimento/encaminhar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ atendimentoId, atendenteId, userId }),
-    });
-
-    const data = await res.json();
-
-    if (!data.sucesso) {
-      // mensagem informativa 
-      alert(data.mensagem); 
-      return;
+  const loadAtendentesOnline = useCallback(async () => {
+    try {
+      const res = await fetch("/api/atendimento/atendentes/online");
+      if (!res.ok) throw new Error("Erro ao buscar atendentes online");
+      setAtendentesOnline(await res.json());
+    } catch (e) {
+      console.error("Falha ao carregar atendentes:", e);
     }
+  }, []);
 
-    await fetch("/api/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-      number: data.remoteJid,
-      text: `Olá, meu nome é ${data.nomeAtendente} e vou seguir com seu atendimento.`,
-          }),
-        });
+  useEffect(() => {
+    loadAtendentesOnline();
+  }, [loadAtendentesOnline]);
 
+  const encaminhar = async (atendimentoId: number, atendenteId: string) => {
+    try {
+      const res = await fetch("/api/atendimento/encaminhar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ atendimentoId, atendenteId, userId }),
+      });
 
-    // sucesso
-    loadFila();
+      const data = await res.json();
 
-  } catch (e) {
-    console.error("Falha ao encaminhar:", e);
-    alert("Erro ao encaminhar atendimento");
-  }
-};
+      if (!data.sucesso) {
+        // mensagem informativa
+        alert(data.mensagem);
+        return;
+      }
 
+      const texto = `Olá, meu nome é ${data.nomeAtendente} e vou seguir com seu atendimento.`;
 
+      await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          number: data.remoteJid,
+          text: texto
+        }),
+      });
+
+      // atualiza o card lateral
+      setContacts((p) =>
+        p.map((c) =>
+          c.id === data.remoteJid
+            ? {
+                ...c,
+                lastMsg: texto,
+                time: new Date().toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              }
+            : c
+        )
+      );
+
+      // atualiza conversa aberta se ela estiver selecionada
+      if (sel && sel.id === data.remoteJid) {
+        setMsgs((p) => ({
+          ...p,
+          [sel.id]: [
+            ...(p[sel.id] || []),
+            {
+              id: `m${Date.now()}`,
+              cid: sel.id,
+              text: texto,
+              time: new Date().toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              from: "agent",
+              sending: false,
+            },
+          ],
+        }));
+      }
+
+      loadFila();
+    } catch (e) {
+      console.error("Falha ao encaminhar:", e);
+      alert("Erro ao encaminhar atendimento");
+    }
+  };
 
 
 
@@ -551,23 +647,23 @@ const encaminhar = async (atendimentoId: number, atendenteId: string) => {
       )}
 
       {(userRole === "ADMIN" || userRole === "OBSERVADOR") && ticket.status === "AGUARDANDO" && (
-  <select
-  defaultValue=""
-  onChange={e=>{if(e.target.value) encaminhar(ticket.id, e.target.value);}}
-  style={{ padding:"6px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer"}}
->
-  <option value="">Encaminhar para...</option>
-  {atendentesOnline.map(a=>(
-    <option
-      key={a.id}
-      value={a.id}
-      style={{background:"#f9f9f9",color:"#111"}}
-    >
-      {a.online ? "🟢" : "🔴"} {a.nome}
-    </option>
-  ))}
-</select>
-)}
+        <select
+          defaultValue=""
+          onChange={e=>{if(e.target.value) encaminhar(ticket.id, e.target.value);}}
+          style={{ padding:"6px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer"}}
+        >
+          <option value="">Encaminhar para...</option>
+          {atendentesOnline.map(a=>(
+            <option
+              key={a.id}
+              value={a.id}
+              style={{background:"#f9f9f9",color:"#111"}}
+            >
+              {a.online ? "🟢" : "🔴"} {a.nome}
+            </option>
+          ))}
+        </select>
+      )}
     </span>
   );
 })()}

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, In } from 'typeorm';
+import { Repository, MoreThan, In, Brackets } from 'typeorm';
 import { Atendimento } from './entities/atendimento.entity';
 import { Funcionario } from '../auth/entities/funcionario.entity'; // ajuste o caminho conforme sua estrutura
 
@@ -23,13 +23,27 @@ export class AtendimentoService {
     const userId = user.sub || user.id || user.userId;
 
     if (user.role === 'ADMIN' || user.role === 'OBSERVADOR') {
-      query.where('a.status IN (:...ativos)', { ativos: ['BOT', 'AGUARDANDO', 'EM_ATENDIMENTO'] })
-           .orWhere('a.status = :fin AND a.dataCriacao >= :hoje', { fin: 'FINALIZADO', hoje });
+      query.where(new Brackets(qb => {
+        qb.where('a.status IN (:...ativos)', { ativos: ['BOT', 'AGUARDANDO', 'EM_ATENDIMENTO'] })
+          .orWhere('a.status = :fin AND a.dataCriacao >= :hoje', { fin: 'FINALIZADO', hoje });
+      }));
     } else {
-      query.where('a.status IN (:aguardando, :bot)', { aguardando: 'AGUARDANDO', bot: 'BOT' })
-           .orWhere('(a.status = :emAtendimento AND (a.atendenteId = :userId OR a.atendenteId = :botId OR a.atendenteId IS NULL))', { emAtendimento: 'EM_ATENDIMENTO', userId, botId: 'bot' })
-           .orWhere('(a.status = :fin AND (a.atendenteId = :userId OR a.atendenteId = :botId OR a.atendenteId IS NULL) AND a.dataCriacao >= :hoje)', { fin: 'FINALIZADO', userId, botId: 'bot', hoje });
+      query.where(new Brackets(qb => {
+        qb.where('a.status = :aguardando', { aguardando: 'AGUARDANDO' })
+          .orWhere('(a.status = :emAtendimento AND a.atendenteId = :userId)', { emAtendimento: 'EM_ATENDIMENTO', userId })
+          .orWhere('(a.status = :fin AND a.atendenteId = :userId AND a.dataCriacao >= :hoje)', { fin: 'FINALIZADO', userId, hoje });
+      }));
     }
+
+    query.andWhere(`NOT EXISTS (
+      SELECT 1
+      FROM atendimentos newer
+      WHERE newer."remoteJid" = a."remoteJid"
+        AND (
+          newer."dataCriacao" > a."dataCriacao"
+          OR (newer."dataCriacao" = a."dataCriacao" AND newer.id > a.id)
+        )
+    )`);
 
     // Busca ordenado por data DESC para que o front pegue sempre o ticket mais recente para o contato
     const fila = await query.orderBy('a.dataCriacao', 'DESC').getMany();
@@ -53,13 +67,24 @@ export class AtendimentoService {
 
   // Para o atendente "assumir" o ticket no Front-end
   async assumirAtendimento(id: number, atendenteId: string) {
-    await this.atendimentoRepo.update(id, { status: 'EM_ATENDIMENTO', atendenteId });
+    const resultado = await this.atendimentoRepo.update(
+      { id, status: 'AGUARDANDO' },
+      { status: 'EM_ATENDIMENTO', atendenteId },
+    );
+
+    if (!resultado.affected) {
+      return {
+        sucesso: false,
+        mensagem: 'Esse atendimento já foi assumido por outro atendente.',
+      };
+    }
 
      const atendente = await this.funcionarioRepository.findOne({
     where: { id: atendenteId },
   });
 
   return {
+    sucesso: true,
     nome: atendente?.nome,
   };
   }
