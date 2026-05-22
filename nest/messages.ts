@@ -16,9 +16,14 @@ Por favor, escolha uma das opções abaixo digitando o número:
 
 OPCAO_INVALIDA: `Opção inválida.
 
+
 Por favor, escolha umas das opções abaixo:
 1 - Retornar ao menu anterior 
 0 - Encerrar atendimento`,
+
+BOT_MENSAGEM: `🤖 Assistente Virtual `,
+
+
 
     SUBMENU_VISITAS_PORTO: `O que você deseja Fazer?
     1 - Voltar ao menu inicial

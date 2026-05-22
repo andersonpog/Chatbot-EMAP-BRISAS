@@ -88,7 +88,7 @@ export class EvolutionController {
           await this.evolutionService.enviarMensagem(
             instance, 
             remoteJid, 
-            BotMessages.SAUDACAO_INICIAL
+            BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.SAUDACAO_INICIAL
           );
           estadosUsuarios[remoteJid] = 'SAUDACAO_INICIAL';
         } 
@@ -96,7 +96,7 @@ export class EvolutionController {
           await this.evolutionService.enviarMensagem(
             instance, 
             remoteJid, 
-            BotMessages.MENU_PRINCIPAL
+            BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
           );
           estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
         }
@@ -107,7 +107,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.SUBMENU_VISITAS_PORTO
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.SUBMENU_VISITAS_PORTO
             );
             estadosUsuarios[remoteJid] = 'SUBMENU_VISITAS_PORTO';
             estadoRetorno[remoteJid] = 'SUBMENU_VISITAS_PORTO'
@@ -116,7 +116,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.SUBMENU_TRABALHE_CONOSCO
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.SUBMENU_TRABALHE_CONOSCO
             );
             estadosUsuarios[remoteJid] = 'SUBMENU_TRABALHE_CONOSCO';
             estadoRetorno[remoteJid] = 'SUBMENU_TRABALHE_CONOSCO';
@@ -125,7 +125,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.RESPOSTA_COMERCIAL
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.RESPOSTA_COMERCIAL
             );
             estadosUsuarios[remoteJid] = 'AGUARDANDO_SUB_OPCAO';
             estadoRetorno[remoteJid] = 'MENU_PRINCIPAL'
@@ -144,7 +144,7 @@ export class EvolutionController {
            await this.evolutionService.enviarMensagem(
              instance, 
              remoteJid, 
-            BotMessages.ANALISTA_OUVIDORIA)
+            BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.ANALISTA_OUVIDORIA)
             ;
            estadosUsuarios[remoteJid] = 'AGUARDANDO_ANALISTA';
           }
@@ -152,7 +152,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages.DESPEDIDA
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA
             );
             delete estadosUsuarios[remoteJid];
 
@@ -162,7 +162,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages[estadoAtual]
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[estadoAtual]
             );
           }
         }
@@ -173,7 +173,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.MENU_PRINCIPAL
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
             );
             estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
           } 
@@ -181,7 +181,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.AGENDAR_VISITA_PORTO
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.AGENDAR_VISITA_PORTO
             );
             estadosUsuarios[remoteJid] = 'AGENDAR_VISITA';
           }
@@ -189,7 +189,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.CANCELAR_VISITA_PORTO
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.CANCELAR_VISITA_PORTO
             );
             estadosUsuarios[remoteJid] = 'REAGENDAR_CANCELAR_VISITA';
           }
@@ -197,7 +197,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages[estadoAtual]
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[estadoAtual]
             );
           }
         }
@@ -208,7 +208,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.MENU_PRINCIPAL
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
             );
             estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
           } 
@@ -216,7 +216,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.TRABALHE_CONOSCO
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.TRABALHE_CONOSCO
             );
             estadosUsuarios[remoteJid] = 'TRABALHE_CONOSCO_OPCAO';
           }
@@ -224,7 +224,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.ESTAGIO_PORTO
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.ESTAGIO_PORTO
             );
             estadosUsuarios[remoteJid] = 'ESTAGIO_OPCAO';
           }
@@ -232,7 +232,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.JOVEM_APRENDIZ_PORTO
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.JOVEM_APRENDIZ_PORTO
             );
             estadosUsuarios[remoteJid] = 'JOVEM_APRENDIZ_OPCAO';
           }
@@ -240,7 +240,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages.DESPEDIDA
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA
             );
             delete estadosUsuarios[remoteJid];
           }
@@ -248,7 +248,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance, 
               remoteJid, 
-              BotMessages[estadoAtual]
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[estadoAtual]
             );
           }
         }
@@ -261,13 +261,13 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages[retorno]
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[retorno]
             );
           } else if (textoRecebido === '0') {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages.DESPEDIDA
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA
             );
             delete estadosUsuarios[remoteJid];
             delete estadoRetorno[remoteJid];
@@ -277,7 +277,7 @@ export class EvolutionController {
             await this.evolutionService.enviarMensagem(
               instance,
               remoteJid,
-              BotMessages.OPCAO_INVALIDA
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.OPCAO_INVALIDA
             );
           }
         }
@@ -286,9 +286,9 @@ export class EvolutionController {
 else if (estadoAtual === 'AGUARDANDO_SUB_OPCAO') {
   if (textoRecebido === '1') {
     estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
-    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.MENU_PRINCIPAL);
+    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL);
   } else if (textoRecebido === '0') {
-    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.DESPEDIDA);
+    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA);
     delete estadosUsuarios[remoteJid];
     delete estadoRetorno[remoteJid];
     if (ticketBot) await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
@@ -296,7 +296,7 @@ else if (estadoAtual === 'AGUARDANDO_SUB_OPCAO') {
     await this.evolutionService.enviarMensagem(
       instance,
       remoteJid,
-      BotMessages.OPCAO_INVALIDA
+      BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.OPCAO_INVALIDA
     );
   }
 }

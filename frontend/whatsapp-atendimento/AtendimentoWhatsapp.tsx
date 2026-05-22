@@ -10,6 +10,7 @@ type Status = "open" | "pending" | "resolved" | "bot";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
 interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null; atendenteNome?: string }
+interface Toast { type: "success" | "error"; message: string }
 
 // Evolution API types
 interface EvoMsg {
@@ -179,8 +180,13 @@ export default function WaAtendimento() {
   const [userRole, setUserRole] = useState<string>("ATENDENTE");
   const [fila, setFila] = useState<FilaItem[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  const chatMenuRef = useRef<HTMLDivElement>(null);
+  const encaminharMenuRef = useRef<HTMLDivElement>(null);
   const prevMsgCountRef = useRef<number>(0);
   const prevSelIdRef = useRef<string | null>(null);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [encaminharMenuOpen, setEncaminharMenuOpen] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" }).then(async r => {
@@ -289,6 +295,38 @@ export default function WaAtendimento() {
     if (statusDoContato(selId) === null) setSelId(null);
   }, [fila, selId, userId, userRole]);
 
+  useEffect(() => {
+    setChatMenuOpen(false);
+    setEncaminharMenuOpen(false);
+  }, [selId]);
+
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!chatMenuRef.current?.contains(event.target as Node)) {
+        setChatMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [chatMenuOpen]);
+
+  useEffect(() => {
+    if (!encaminharMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!encaminharMenuRef.current?.contains(event.target as Node)) {
+        setEncaminharMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [encaminharMenuOpen]);
+
+  const showToast = useCallback((message: string, type: Toast["type"] = "error") => {
+    setToast({ message, type });
+    window.setTimeout(() => setToast(null), 3600);
+  }, []);
+
   const assumir = async (item: FilaItem) => {
     const response = await fetch(`/api/atendimento/${item.id}`, {
       method: "PATCH",
@@ -304,7 +342,9 @@ export default function WaAtendimento() {
       return;
     }
 
-    const texto = `Olá, meu nome é ${data.nome} e vou seguir com seu atendimento.`;
+    const texto = ` 🟢 ${data.nome} | Atendente
+
+  Olá! Vou seguir com seu atendimento.`;
 
     await fetch("/api/send", {
       method: "POST",
@@ -446,12 +486,14 @@ export default function WaAtendimento() {
       const data = await res.json();
 
       if (!data.sucesso) {
-        // mensagem informativa
-        alert(data.mensagem);
+        showToast(data.mensagem || "Não foi possível encaminhar o atendimento.");
+        loadAtendentesOnline();
         return;
       }
 
-      const texto = `Olá, meu nome é ${data.nomeAtendente} e vou seguir com seu atendimento.`;
+      const texto = ` 🟢 ${data.nomeAtendente} | Atendente
+    
+    Olá! Vou seguir com seu atendimento.`;
 
       await fetch("/api/send", {
         method: "POST",
@@ -502,7 +544,7 @@ export default function WaAtendimento() {
       loadFila();
     } catch (e) {
       console.error("Falha ao encaminhar:", e);
-      alert("Erro ao encaminhar atendimento");
+      showToast("Erro ao encaminhar atendimento. Tente novamente.");
     }
   };
 
@@ -521,6 +563,25 @@ export default function WaAtendimento() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden" style={{fontFamily:"'Segoe UI',Helvetica,Arial,sans-serif",backgroundColor:"#eae6df"}}>
+      {toast && (
+        <div
+          className="fixed right-5 top-5 z-50 flex items-start gap-3 rounded-md bg-white px-4 py-3 shadow-lg border"
+          style={{borderColor:toast.type === "error" ? "#f3c7c3" : "#bfe8d2",boxShadow:"0 8px 24px rgba(11,20,26,.18)",maxWidth:360}}
+        >
+          <span
+            className="mt-1 inline-block h-2.5 w-2.5 rounded-full shrink-0"
+            style={{backgroundColor:toast.type === "error" ? "#e74c3c" : "#25D366"}}
+          />
+          <div>
+            <div className="text-sm font-semibold" style={{color:"#111b21"}}>
+              {toast.type === "error" ? "Encaminhamento indisponível" : "Encaminhamento concluído"}
+            </div>
+            <div className="mt-0.5 text-sm" style={{color:"#54656f",lineHeight:1.35}}>
+              {toast.message}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <aside className="flex flex-col border-r" style={{width:320,minWidth:320,backgroundColor:"#fff",borderColor:"#e9edef"}}>
         <div className="flex items-center justify-between px-4 py-2.5" style={{backgroundColor:"#f0f2f5",borderBottom:"1px solid #e9edef"}}>
@@ -647,29 +708,72 @@ export default function WaAtendimento() {
       )}
 
       {(userRole === "ADMIN" || userRole === "OBSERVADOR") && ticket.status === "AGUARDANDO" && (
-        <select
-          defaultValue=""
-          onChange={e=>{if(e.target.value) encaminhar(ticket.id, e.target.value);}}
-          style={{ padding:"6px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:600, cursor:"pointer"}}
-        >
-          <option value="">Encaminhar para...</option>
+        <div ref={encaminharMenuRef} className="relative">
+          <button
+            onClick={() => setEncaminharMenuOpen(open => !open)}
+            style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}
+          >
+            Encaminhar
+          </button>
+          {encaminharMenuOpen && (
+            <div
+              className="absolute right-0 top-8 z-20 min-w-[220px] max-h-[260px] overflow-y-auto py-2 rounded-sm bg-white border border-gray-100"
+              style={{boxShadow:"0 2px 8px rgba(11,20,26,.18)"}}
+            >
+              {atendentesOnline.length === 0 ? (
+                <div className="px-4 py-2 text-sm" style={{color:"#8696a0"}}>Nenhum atendente online</div>
+              ) : (
+                <div>
           {atendentesOnline.map(a=>(
-            <option
+                    <button
               key={a.id}
-              value={a.id}
-              style={{background:"#f9f9f9",color:"#111"}}
+                      onClick={() => {
+                        setEncaminharMenuOpen(false);
+                        encaminhar(ticket.id, String(a.id));
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm border-none bg-transparent cursor-pointer hover:bg-[#f0f2f5]"
+                      style={{color:"#111b21",fontFamily:"inherit"}}
             >
               {a.online ? "🟢" : "🔴"} {a.nome}
-            </option>
+                    </button>
           ))}
-        </select>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </span>
   );
 })()}
 
 
-              <B cls="p-2" ch={<Ico.Phone/>}/><B cls="p-2" ch={<Ico.Search/>}/><B cls="p-2" ch={<Ico.Dots/>}/>
+              <B cls="p-2" ch={<Ico.Phone/>}/><B cls="p-2" ch={<Ico.Search/>}/>
+              <div ref={chatMenuRef} className="relative">
+                <B
+                  cls="p-2 rounded-full hover:bg-[#e2e8ec]"
+                  onClick={() => setChatMenuOpen(open => !open)}
+                  ch={<Ico.Dots/>}
+                />
+                {chatMenuOpen && (
+                  <div
+                    className="absolute right-0 top-10 z-20 min-w-[190px] py-2 rounded-sm bg-white border border-gray-100"
+                    style={{boxShadow:"0 2px 8px rgba(11,20,26,.18)"}}
+                  >
+                    <button
+                      onClick={() => {
+                        setChatMenuOpen(false);
+                        setInp("");
+                        setSelId(null);
+                      }}
+                      className="w-full px-5 py-3 text-left text-sm border-none bg-transparent cursor-pointer hover:bg-[#f0f2f5]"
+                      style={{color:"#111b21",fontFamily:"inherit"}}
+                    >
+                      Fechar conversa
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-[60px] py-4"><div className="max-w-[780px] mx-auto flex flex-col gap-1">
