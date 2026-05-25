@@ -5,6 +5,7 @@ import { EvolutionService } from './evolution.service';
 import { Atendimento } from '../atendimento/entities/atendimento.entity';
 import { BotMessages } from '../../messages';
 import { EvolutionGateway } from './evolution.gateway';
+import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 
 
 // Controle de estado simples em memória
@@ -18,6 +19,7 @@ export class EvolutionController {
     @InjectRepository(Atendimento)
     private readonly atendimentoRepo: Repository<Atendimento>,
     private readonly evolutionGateway: EvolutionGateway,
+    private readonly configuracoesService: ConfiguracoesService,
   ) {}
 
   @Post()
@@ -131,22 +133,58 @@ export class EvolutionController {
             estadoRetorno[remoteJid] = 'MENU_PRINCIPAL'
           }
           else if (textoRecebido === '4') {
-            // Finaliza o atendimento do bot e cria um novo ticket para o Humano
-            if (ticketBot) {
-              await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
-            }
-            await this.atendimentoRepo.save({
-             remoteJid,
-             nome,
-            status: 'AGUARDANDO',
-          });
+            // ====================================================================
+            // VERIFICAÇÃO DE HORÁRIO ANTES DE ENCAMINHAR
+            // ====================================================================
+            const config = await this.configuracoesService.getConfig();
+            
+            const dataBrasil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+            const diaAtual = dataBrasil.getDay();
+            const horaAtual = dataBrasil.getHours();
+            const minutoAtual = dataBrasil.getMinutes();
 
-           await this.evolutionService.enviarMensagem(
-             instance, 
-             remoteJid, 
-            BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.ANALISTA_OUVIDORIA)
-            ;
-           estadosUsuarios[remoteJid] = 'AGUARDANDO_ANALISTA';
+            const horarioHoje = config.horarios ? config.horarios.find((h: any) => h.dia === diaAtual) : null;
+            let foraDoHorario = true;
+
+            if (horarioHoje && horarioHoje.ativo) {
+              const [horaInicio, minInicio] = horarioHoje.inicio.split(':').map(Number);
+              const [horaFim, minFim] = horarioHoje.fim.split(':').map(Number);
+              const minutosAtuais = horaAtual * 60 + minutoAtual;
+              const minutosInicio = horaInicio * 60 + minInicio;
+              const minutosFim = horaFim * 60 + minFim;
+              if (minutosAtuais >= minutosInicio && minutosAtuais < minutosFim) foraDoHorario = false;
+            }
+
+            if (foraDoHorario) {
+              await this.evolutionService.enviarMensagem(
+                instance,
+                remoteJid,
+                config.mensagemForaHorario
+              );
+              // Reenvia o menu principal para o usuário continuar navegando
+              await this.evolutionService.enviarMensagem(
+                instance,
+                remoteJid,
+                BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
+              );
+            } else {
+              // Finaliza o atendimento do bot e cria um novo ticket para o Humano
+              if (ticketBot) {
+                await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
+              }
+              await this.atendimentoRepo.save({
+               remoteJid,
+               nome,
+              status: 'AGUARDANDO',
+            });
+
+             await this.evolutionService.enviarMensagem(
+               instance, 
+               remoteJid, 
+              BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.ANALISTA_OUVIDORIA)
+              ;
+             estadosUsuarios[remoteJid] = 'AGUARDANDO_ANALISTA';
+            }
           }
           else if (textoRecebido === '0') {
             await this.evolutionService.enviarMensagem(
