@@ -1,0 +1,5 @@
+Criar uma aba de configuração para colocar os horários de atendimento dos atendentes humanos
+criar o modo noturno no layout
+ajeitar o pop-up do encaminhar
+corrigir a questão dos resolvidos para aparecer apenas para quem o atendeu 
+melhorar a documentação 
