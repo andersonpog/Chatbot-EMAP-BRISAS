@@ -6,16 +6,19 @@ export class Atendimento {
   id!: number;
 
   @Column()
-  remoteJid!: string; // ID do WhatsApp
+  remoteJid!: string;
 
   @Column()
   nome!: string;
 
-  @Column({ default: 'BOT' }) // BOT, AGUARDANDO, EM_ATENDIMENTO, FINALIZADO
+  @Column({ default: 'BOT' })
   status!: string;
 
   @Column({ nullable: true })
-  atendenteId!: string; // ID do funcionário (UUID) que assumiu a conversa
+  atendenteId!: string;
+
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  ultimaMensagemEm: Date | null;
 
   @CreateDateColumn()
   dataCriacao!: Date;

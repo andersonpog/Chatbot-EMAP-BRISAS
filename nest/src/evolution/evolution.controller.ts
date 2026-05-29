@@ -42,6 +42,14 @@ export class EvolutionController {
 
       if (!textoRecebido || fromMe) return { status: 200 };
 
+      // Registra timestamp da última mensagem do cliente em todos os tickets ativos deste JID
+      await this.atendimentoRepo
+        .createQueryBuilder()
+        .update()
+        .set({ ultimaMensagemEm: new Date() })
+        .where('remoteJid = :jid AND status != :fin', { jid: remoteJid, fin: 'FINALIZADO' })
+        .execute();
+
       // Aguarda 1,5 segundos (1500 ms) antes do bot processar a resposta
       await new Promise(resolve => setTimeout(resolve, 1500));
 

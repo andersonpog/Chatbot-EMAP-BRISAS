@@ -99,6 +99,8 @@ BOT_MENSAGEM: `🤖 Assistente Virtual `,
 
 
     
-DESPEDIDA: "✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente."
+DESPEDIDA: "✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente.",
+
+INATIVIDADE: "⏱️ Seu atendimento foi encerrado por inatividade (10 minutos sem resposta). Caso precise de ajuda, é só nos chamar novamente!"
 
 };
