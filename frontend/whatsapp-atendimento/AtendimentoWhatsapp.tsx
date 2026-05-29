@@ -5,11 +5,12 @@ import { io } from "socket.io-client";
 
 // Chamadas passam pelo proxy Next.js (sem CORS, sem expor credenciais no browser)
 
+
 type Status = "open" | "pending" | "resolved" | "bot";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
 interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
-interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null }
-interface Atendente { id: string; nome: string; online?: boolean }
+interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null; atendenteNome?: string }
+interface Toast { type: "success" | "error"; message: string }
 
 // Evolution API types
 interface EvoMsg {
@@ -46,17 +47,6 @@ function getMsgText(m: EvoMsg): string {
   if (msg.documentMessage) return msg.documentMessage.title || "[Documento]";
   if (msg.stickerMessage) return "[Sticker]";
   return "[mensagem]";
-}
-
-// Remove parênteses ao redor de URLs e renderiza links clicáveis
-function renderText(text: string): ReactNode {
-  const cleaned = text.replace(/\((https?:\/\/[^\s)]+)\)/g, "$1");
-  const parts = cleaned.split(/(https?:\/\/[^\s]+)/g);
-  return parts.map((part, i) =>
-    /^https?:\/\//.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: "#128C7E", textDecoration: "underline" }}>{part}</a>
-      : part
-  );
 }
 
 function fmtTime(ts: number): string {
@@ -148,19 +138,33 @@ const Ico: Record<string, FC<{c?:string;s?:number}>> = {
   File:({c="#8696a0",s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
   Refresh:({c="#8696a0",s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
   WA:({s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>,
-  Moon:({s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
+  Moon:({c="#54656f",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
+  Sun:({c="#54656f",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
   Set:({c="#54656f",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
   ChkSq:({c="currentColor",s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
-  // Dois risquinhos cinza (cor cinza = apenas entregue, sem confirmação de leitura)
-  DblChk:()=><svg width="16" height="11" viewBox="0 0 16 11" fill="#8696a0" className="ml-1"><path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 00-.336-.153.457.457 0 00-.344.153.52.52 0 00-.153.356c0 .14.051.267.153.356l2.39 2.487a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.255-.316z"/><path d="M14.757.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.249-.336.415 1.536 1.6a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.556-.378z"/></svg>,
+  DblChk:()=><svg width="16" height="11" viewBox="0 0 16 11" fill="#53bdeb" className="ml-1"><path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 00-.336-.153.457.457 0 00-.344.153.52.52 0 00-.153.356c0 .14.051.267.153.356l2.39 2.487a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.255-.316z"/><path d="M14.757.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.249-.336.415 1.536 1.6a.463.463 0 00.336.153.457.457 0 00.344-.153l6.598-8.144a.52.52 0 00.153-.356.457.457 0 00-.556-.378z"/></svg>,
   Bot:({c="currentColor",s=18})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>,
-  Forward:({c="#54656f",s=16})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 004 4h12"/></svg>,
 };
 
 const B:FC<{ch:ReactNode;cls?:string;onClick?:()=>void}> = ({ch,cls="",onClick})=><button onClick={onClick} className={`flex items-center justify-center cursor-pointer bg-transparent border-none ${cls}`}>{ch}</button>;
 const avColors = ["#25D366","#128C7E","#075E54","#34B7F1","#00A884","#5B72E8","#E84C88","#F5A623"];
 const Av:FC<{n:string;sz?:number}> = ({n,sz=40})=><div style={{width:sz,minWidth:sz,height:sz,borderRadius:"50%",backgroundColor:avColors[n.charCodeAt(0)%8],fontSize:sz*.38}} className="flex items-center justify-center text-white font-semibold">{n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()}</div>;
 const Tag:FC<{t:string}> = ({t})=><span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded" style={{color:"#00a884",backgroundColor:"#e7f7ef"}}>{t}</span>;
+
+// Transforma URLs no texto em links clicáveis
+function renderTextWithLinks(text: string, isDark: boolean = false) {
+  const urlRegex = /(https?:\/\/[^\s]+[^\s.,;:!?()])/g;
+  return text.split(urlRegex).map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: isDark ? "#53bdeb" : "#027eb5", textDecoration: "underline" }}>
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
 
 export default function WaAtendimento() {
   const router = useRouter();
@@ -176,11 +180,15 @@ export default function WaAtendimento() {
   const [userName, setUserName] = useState("Atendente");
   const [userRole, setUserRole] = useState<string>("ATENDENTE");
   const [fila, setFila] = useState<FilaItem[]>([]);
-  const [encaminhandoId, setEncaminhandoId] = useState<number | null>(null);
-  const [atendentes, setAtendentes] = useState<Atendente[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  const chatMenuRef = useRef<HTMLDivElement>(null);
+  const encaminharMenuRef = useRef<HTMLDivElement>(null);
   const prevMsgCountRef = useRef<number>(0);
   const prevSelIdRef = useRef<string | null>(null);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [encaminharMenuOpen, setEncaminharMenuOpen] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" }).then(async r => {
@@ -191,6 +199,13 @@ export default function WaAtendimento() {
       if (d.nome) setUserName(d.nome);
       if (d.role) setUserRole(d.role);
     }).catch(() => window.location.replace("/login"));
+
+    // Recupera tema salvo
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      setIsDarkMode(true);
+      document.documentElement.classList.add("dark");
+    }
   }, [router]);
 
   // Heartbeat — informa ao servidor que o usuário está online
@@ -201,9 +216,7 @@ export default function WaAtendimento() {
     return () => clearInterval(t);
   }, []);
 
-  // Lógica de permissões
-  const isReadOnly = userRole === "ADMIN" || userRole === "OBSERVADOR"; // não pode digitar
-  const canForward = userRole === "ADMIN" || userRole === "OBSERVADOR"; // pode encaminhar
+  const isReadOnly = userRole === "ADMIN" || userRole === "OBSERVADOR";
 
   const sel = contacts.find(c => c.id === selId) ?? null;
 
@@ -232,60 +245,166 @@ export default function WaAtendimento() {
     } catch { /* silencioso */ }
   }, []);
 
-  const loadAtendentes = useCallback(async () => {
-    try {
-      const res = await fetch("/api/atendimento/atendentes/online");
-      if (res.ok) setAtendentes(await res.json());
-    } catch {}
-  }, []);
-
   useEffect(() => {
-    loadMessages(true);
-    const socket = io("http://localhost:3001");
+    loadMessages(true); // Carrega a primeira vez mostrando o layout de "Carregando..."
+    
+    // Conecta ao WebSocket do NestJS
+    const backendUrl = typeof window !== 'undefined' 
+      ? `http://${window.location.hostname}:3001`
+      : 'http://localhost:3001';
+    const socket = io(backendUrl);
     socket.on("nova_mensagem", () => {
-      loadMessages(false);
-      loadFila();
+      loadFila(); // Aproveita e atualiza a fila instantaneamente também!
+      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
+
+      // O encaminhamento avisa a mudança de fila antes da mensagem de apresentação
+      // terminar de ser enviada pela Evolution. Recarrega mais uma vez para cobrir essa corrida.
+      window.setTimeout(() => loadMessages(false), 2500);
+      window.setTimeout(() => loadMessages(false), 6000);
     });
-    return () => { socket.disconnect(); };
+
+
+    return () => {
+      socket.disconnect();
+    };
   }, [loadMessages, loadFila]);
 
   useEffect(() => {
     loadFila();
   }, [loadFila]);
 
-  // Fecha dropdown de encaminhamento ao clicar fora
-  useEffect(() => {
-    if (encaminhandoId === null) return;
-    const close = () => setEncaminhandoId(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [encaminhandoId]);
 
   const filaDoContato = (jid: string) => {
-    const ativo = fila.find(f => f.remoteJid === jid && f.status !== "FINALIZADO");
-    if (ativo) return ativo;
-    return fila.find(f => f.remoteJid === jid && f.status === "FINALIZADO") ?? null;
+    return fila.find(f => f.remoteJid === jid) ?? null;
   };
 
+  // Deriva o status da aba com base na fila
   const statusDoContato = (jid: string): Status | null => {
     const ticket = filaDoContato(jid);
     if (!ticket) return (userRole === "ADMIN" || userRole === "OBSERVADOR") ? "bot" : null;
-    if (ticket.status === "BOT") return "bot";
+
+    if (userRole === "ATENDENTE") {
+      const atendenteDoTicket = ticket.atendenteId == null ? null : String(ticket.atendenteId);
+      const usuarioAtual = userId == null ? null : String(userId);
+
+      if (ticket.status === "BOT" || atendenteDoTicket === "bot") return null;
+      if (ticket.status === "EM_ATENDIMENTO" && (!usuarioAtual || atendenteDoTicket !== usuarioAtual)) return null;
+      if (ticket.status === "FINALIZADO" && (!usuarioAtual || atendenteDoTicket !== usuarioAtual)) return null;
+    }
+
+    if (ticket.status === "BOT" || (ticket.status === "EM_ATENDIMENTO" && ticket.atendenteId === "bot")) return "bot";
     if (ticket.status === "AGUARDANDO") return "pending";
     if (ticket.status === "EM_ATENDIMENTO") return "open";
     if (ticket.status === "FINALIZADO") return "resolved";
     return null;
   };
 
+  useEffect(() => {
+    if (!selId) return;
+    if (statusDoContato(selId) === null) setSelId(null);
+  }, [fila, selId, userId, userRole]);
+
+  useEffect(() => {
+    setChatMenuOpen(false);
+    setEncaminharMenuOpen(false);
+  }, [selId]);
+
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!chatMenuRef.current?.contains(event.target as Node)) {
+        setChatMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [chatMenuOpen]);
+
+  useEffect(() => {
+    if (!encaminharMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!encaminharMenuRef.current?.contains(event.target as Node)) {
+        setEncaminharMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [encaminharMenuOpen]);
+
+  const showToast = useCallback((message: string, type: Toast["type"] = "error") => {
+    setToast({ message, type });
+    window.setTimeout(() => setToast(null), 3600);
+  }, []);
+
   const assumir = async (item: FilaItem) => {
-    await fetch(`/api/atendimento/${item.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "assumir" }),
+    const response = await fetch(`/api/atendimento/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "assumir"}),
     });
+
+    const data = await response.json();
+
+    if (!data.sucesso) {
+      alert(data.mensagem || "Esse atendimento não está mais disponível.");
+      loadFila();
+      return;
+    }
+
+    const texto = ` 🟢 ${data.nome} | Atendente
+
+  Olá! Vou seguir com seu atendimento.`;
+
+    await fetch("/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        number: item.remoteJid,
+        text: texto
+      }),
+    });
+
+    //atualiza a mensagem no card lateral
+    setContacts((p) =>
+      p.map((c) =>
+        c.id === item.remoteJid
+          ? {
+              ...c,
+              lastMsg: texto,
+              time: new Date().toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            }
+          : c
+      )
+    );
+
+    if (sel) {
+      setMsgs((p) => ({
+        ...p,
+        [sel.id]: [
+          ...(p[sel.id] || []),
+          {
+            id: `m${Date.now()}`,
+            cid: sel.id,
+            text: texto,
+            time: new Date().toLocaleTimeString("pt-BR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            from: "agent",
+            sending: false,
+          },
+        ],
+      }));
+    }
+
     loadFila();
   };
 
   const finalizar = async (item: FilaItem) => {
+    // Envia mensagem de encerramento ANTES de finalizar o ticket
     await fetch("/api/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -300,37 +419,11 @@ export default function WaAtendimento() {
     loadFila();
   };
 
-  const encaminhar = async (ticketId: number, atendenteId: string) => {
-    await fetch(`/api/atendimento/${ticketId}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "encaminhar", atendenteId }),
-    });
-    setEncaminhandoId(null);
-    loadFila();
-  };
-
-  // Atendente só pode enviar mensagem se o ticket está EM_ATENDIMENTO e é o responsável
-  const canSend = (() => {
-    if (isReadOnly) return false;
-    const ticket = sel ? filaDoContato(sel.id) : null;
-    if (!ticket) return false;
-    return ticket.status === "EM_ATENDIMENTO" && String(ticket.atendenteId) === String(userId);
-  })();
-
-  const cantSendReason = (() => {
-    const ticket = sel ? filaDoContato(sel.id) : null;
-    if (!ticket || ticket.status === "BOT") return "Bot está atendendo esta conversa";
-    if (ticket.status === "AGUARDANDO") return "Assuma o atendimento para enviar mensagens";
-    if (ticket.status === "EM_ATENDIMENTO") return "Outro atendente está atendendo";
-    return "Atendimento finalizado";
-  })();
-
   const list = contacts.filter(c => {
     const st = statusDoContato(c.id);
     return st !== null && st === tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q));
   });
   const cnt = (s:Status) => contacts.filter(c => statusDoContato(c.id) === s).length;
-
   useEffect(() => {
     if (!sel) return;
     const currentCount = (msgs[sel.id] || []).length;
@@ -344,7 +437,7 @@ export default function WaAtendimento() {
   }, [sel, msgs]);
 
   const send = async () => {
-    if (!inp.trim() || !sel || !canSend) return;
+    if (!inp.trim() || !sel || statusDoContato(sel.id) !== "open") return;
     const text = inp.trim();
     const msgId = `m${Date.now()}`;
     const newMsg: Msg = {
@@ -352,8 +445,10 @@ export default function WaAtendimento() {
       time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
       from: "agent", sending: true,
     };
+    // 1. Atualização otimista — desenha na tela imediatamente
     setMsgs(p => ({ ...p, [sel.id]: [...(p[sel.id] || []), newMsg] }));
     setInp("");
+    // 2. Envio real em background — não bloqueia a UI
     try {
       const res = await fetch("/api/send", {
         method: "POST",
@@ -361,202 +456,379 @@ export default function WaAtendimento() {
         body: JSON.stringify({ number: sel.id, text }),
       });
       if (!res.ok) throw new Error(`Evolution: ${res.status}`);
+      // Marca como enviado (duplo check)
       setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
     } catch (e) {
       console.error("Falha no envio:", e);
+      // Marca a mensagem com erro removendo o flag e adicionando indicação visual
       setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
       alert("Erro ao enviar. Verifique se a Evolution está rodando.");
     }
   };
 
+  // Lista de atendentes onlines e função de encaminhar
+
+  const [atendentesOnline, setAtendentesOnline] = useState<any[]>([]);
+
+  const loadAtendentesOnline = useCallback(async () => {
+    try {
+      const res = await fetch("/api/atendimento/atendentes/online");
+      if (!res.ok) throw new Error("Erro ao buscar atendentes online");
+      setAtendentesOnline(await res.json());
+    } catch (e) {
+      console.error("Falha ao carregar atendentes:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAtendentesOnline();
+  }, [loadAtendentesOnline]);
+
+  const encaminhar = async (atendimentoId: number, atendenteId: string) => {
+    try {
+      const res = await fetch("/api/atendimento/encaminhar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ atendimentoId, atendenteId, userId }),
+      });
+
+      const data = await res.json();
+
+      if (!data.sucesso) {
+        showToast(data.mensagem || "Não foi possível encaminhar o atendimento.");
+        loadAtendentesOnline();
+        return;
+      }
+
+      const texto = ` 🟢 ${data.nomeAtendente} | Atendente
+    
+    Olá! Vou seguir com seu atendimento.`;
+
+      await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          number: data.remoteJid,
+          text: texto
+        }),
+      });
+
+      // atualiza o card lateral
+      setContacts((p) =>
+        p.map((c) =>
+          c.id === data.remoteJid
+            ? {
+                ...c,
+                lastMsg: texto,
+                time: new Date().toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              }
+            : c
+        )
+      );
+
+      // atualiza conversa aberta se ela estiver selecionada
+      if (sel && sel.id === data.remoteJid) {
+        setMsgs((p) => ({
+          ...p,
+          [sel.id]: [
+            ...(p[sel.id] || []),
+            {
+              id: `m${Date.now()}`,
+              cid: sel.id,
+              text: texto,
+              time: new Date().toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              from: "agent",
+              sending: false,
+            },
+          ],
+        }));
+      }
+
+      loadFila();
+    } catch (e) {
+      console.error("Falha ao encaminhar:", e);
+      showToast("Erro ao encaminhar atendimento. Tente novamente.");
+    }
+  };
 
 
 
-
-
-  // Para ADMIN/OBSERVADOR: "PENDENTES" vira "TRANSFERIDOS" (tickets que saíram do Bot para fila humana)
-  const tabData:[Status,string,ReactNode][] = isReadOnly
-    ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","TRANSFERIDOS",<Ico.Forward key="t"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
+  const tabData:[Status,string,ReactNode][] = isReadOnly 
+    ? [["bot","BOT",<Ico.Bot key="b"/>], ["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]]
     : [["open","ABERTOS",<Ico.Chat key="c"/>], ["pending","PENDENTES",<Ico.Clock key="p"/>], ["resolved","RESOLVIDOS",<Ico.Check key="r"/>]];
 
   const handleLogout = async () => {
-    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
     window.location.replace('/login');
   };
 
+  const toggleTheme = () => {
+    setIsDarkMode((prev) => {
+      const newMode = !prev;
+      localStorage.setItem("theme", newMode ? "dark" : "light");
+      if (newMode) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      return newMode;
+    });
+  };
+
   return (
-    <div className="flex h-screen w-full overflow-hidden" style={{fontFamily:"'Segoe UI',Helvetica,Arial,sans-serif",backgroundColor:"#eae6df"}}>
+    <div className="flex h-screen w-full overflow-hidden" style={{fontFamily:"'Segoe UI',Helvetica,Arial,sans-serif",backgroundColor: isDarkMode ? "#000" : "#eae6df", color: isDarkMode ? "#fff" : "inherit"}}>
+      {toast && (
+        <div
+          className="fixed right-5 top-5 z-50 flex items-start gap-3 rounded-md bg-white px-4 py-3 shadow-lg border"
+          style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#fff", borderColor:toast.type === "error" ? (isDarkMode ? "#7a2e2e" : "#f3c7c3") : (isDarkMode ? "#1f4d36" : "#bfe8d2"),boxShadow:"0 8px 24px rgba(0,0,0,.3)",maxWidth:360}}
+        >
+          <span
+            className="mt-1 inline-block h-2.5 w-2.5 rounded-full shrink-0"
+            style={{backgroundColor:toast.type === "error" ? "#e74c3c" : "#25D366"}}
+          />
+          <div>
+            <div className="text-sm font-semibold" style={{color: isDarkMode ? "#fff" : "#111b21"}}>
+              {toast.type === "error" ? "Encaminhamento indisponível" : "Encaminhamento concluído"}
+            </div>
+            <div className="mt-0.5 text-sm" style={{color: isDarkMode ? "#aaa" : "#54656f",lineHeight:1.35}}>
+              {toast.message}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
-      <aside className="flex flex-col border-r" style={{width:320,minWidth:320,backgroundColor:"#fff",borderColor:"#e9edef"}}>
-        <div className="flex items-center justify-between px-4 py-2.5" style={{backgroundColor:"#f0f2f5",borderBottom:"1px solid #e9edef"}}>
-          <span className="font-semibold text-sm" style={{color:"#3b4a54"}}>{userName} ▾</span>
-          <div className="flex gap-0.5">{[Ico.Chat,Ico.Cal,Ico.Home].map((I,i)=><B key={i} cls="p-2 rounded-lg" ch={<I c="#54656f"/>}/>)}</div>
+      <aside className="flex flex-col border-r" style={{width:320,minWidth:320,backgroundColor: isDarkMode ? "#121212" : "#fff",borderColor: isDarkMode ? "#333" : "#e9edef"}}>
+        <div className="flex items-center justify-between px-4 py-2.5" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderBottom:`1px solid ${isDarkMode ? "#333" : "#e9edef"}`}}>
+          <div className="flex items-center gap-2">
+            {userRole === "ADMIN" && (
+              <button onClick={() => router.push('/admin/dashboard')} className="flex items-center justify-center cursor-pointer border-none bg-transparent hover:opacity-70 transition-opacity" title="Voltar ao Painel">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isDarkMode ? "#aaa" : "#54656f"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+              </button>
+            )}
+            <span className="font-semibold text-sm" style={{color: isDarkMode ? "#fff" : "#3b4a54"}}>{userName} ▾</span>
+          </div>
+          <div className="flex gap-0.5">{[Ico.Chat,Ico.Cal,Ico.Home].map((I,i)=><B key={i} cls="p-2 rounded-lg" ch={<I c={isDarkMode ? "#aaa" : "#54656f"}/>}/>)}</div>
         </div>
         <div className="flex gap-1 px-4 pt-2">
           <B cls="w-8 h-8 rounded-md border" ch={<Ico.ChkSq c="#00a884"/>}/>
-          <B cls="w-8 h-8 rounded-md border border-gray-200" ch={<Ico.User c="#54656f"/>}/>
+          <B cls={`w-8 h-8 rounded-md border ${isDarkMode ? "border-[#333]" : "border-gray-200"}`} ch={<Ico.User c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
         </div>
-        <div className="flex gap-1 px-4 py-1">{[Ico.Filter,Ico.File,Ico.Cols,Ico.Sort,Ico.Dots].map((I,i)=><B key={i} cls="w-[30px] h-[30px] rounded-md border border-gray-200" ch={<I c="#8696a0"/>}/>)}</div>
+        <div className="flex gap-1 px-4 py-1">{[Ico.Filter,Ico.File,Ico.Cols,Ico.Sort,Ico.Dots].map((I,i)=><B key={i} cls={`w-[30px] h-[30px] rounded-md border ${isDarkMode ? "border-[#333]" : "border-gray-200"}`} ch={<I c={isDarkMode ? "#aaa" : "#8696a0"}/>}/>)}</div>
         <div className="flex items-center gap-1.5 px-3 pb-2.5">
-          <div className="flex-1 flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{backgroundColor:"#f0f2f5",borderColor:"#e9edef"}}>
-            <Ico.Search s={16}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscando por id, nome ou número..." className="flex-1 bg-transparent border-none outline-none text-[13px]" style={{color:"#3b4a54"}}/>
+          <div className="flex-1 flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderColor: isDarkMode ? "#333" : "#e9edef"}}>
+            <Ico.Search s={16} c={isDarkMode ? "#aaa" : "#54656f"}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscando por id, nome ou número..." className="flex-1 bg-transparent border-none outline-none text-[13px]" style={{color: isDarkMode ? "#fff" : "#3b4a54"}}/>
           </div>
-          <B cls="w-8 h-8 rounded-md border border-gray-200" onClick={loadMessages} ch={<Ico.Refresh/>}/>
+          <B cls={`w-8 h-8 rounded-md border ${isDarkMode ? "border-[#333]" : "border-gray-200"}`} onClick={loadMessages} ch={<Ico.Refresh c={isDarkMode ? "#aaa" : "#8696a0"}/>}/>
         </div>
-        <div className="flex" style={{borderBottom:"1px solid #e9edef"}}>
+        <div className="flex" style={{borderBottom:`1px solid ${isDarkMode ? "#333" : "#e9edef"}`}}>
           {tabData.map(([k,label,icon])=>{const on=tab===k;return(
             <button key={k} onClick={()=>setTab(k)} className="flex-1 flex flex-col items-center gap-0.5 py-2 bg-transparent border-none cursor-pointer" style={{borderBottom:`2px solid ${on?"#00a884":"transparent"}`}}>
-              <div className="relative flex items-center gap-1"><span style={{color:on?"#00a884":"#667781"}}>{icon}</span>{cnt(k)>0&&<span className="absolute -top-1.5 -right-3 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{cnt(k)}</span>}</div>
-              <span className="text-[11px] font-semibold tracking-wide" style={{color:on?"#00a884":"#667781"}}>{label}</span>
+              <div className="relative flex items-center gap-1"><span style={{color:on?"#00a884":(isDarkMode ? "#aaa" : "#667781")}}>{icon}</span>{cnt(k)>0&&<span className="absolute -top-1.5 -right-3 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{cnt(k)}</span>}</div>
+              <span className="text-[11px] font-semibold tracking-wide" style={{color:on?"#00a884":(isDarkMode ? "#aaa" : "#667781")}}>{label}</span>
             </button>
           )})}
         </div>
         <div className="flex-1 overflow-y-auto">
-          {loading&&<p className="text-center text-[13px] p-6" style={{color:"#8696a0"}}>Carregando...</p>}
+          {loading&&<p className="text-center text-[13px] p-6" style={{color: isDarkMode ? "#aaa" : "#8696a0"}}>Carregando...</p>}
           {error&&<p className="text-center text-[12px] p-4 mx-3 rounded-lg bg-red-50 text-red-500">{error}</p>}
-          {!loading&&!error&&list.length===0&&<p className="text-center text-[13px] p-6" style={{color:"#8696a0"}}>Nenhum ticket</p>}
+          {!loading&&!error&&list.length===0&&<p className="text-center text-[13px] p-6" style={{color: isDarkMode ? "#aaa" : "#8696a0"}}>Nenhum ticket</p>}
           {list.map(c=>(
-            <button key={c.id} onClick={()=>setSelId(c.id)} className="w-full flex items-start gap-3 px-4 py-3 border-none text-left cursor-pointer" style={{fontFamily:"inherit",backgroundColor:sel?.id===c.id?"#f0f2f5":"transparent",borderBottom:"1px solid #f0f2f5"}}>
+            <button key={c.id} onClick={()=>setSelId(c.id)} className="w-full flex items-start gap-3 px-4 py-3 border-none text-left cursor-pointer" style={{fontFamily:"inherit",backgroundColor:sel?.id===c.id?(isDarkMode?"#2a2a2a":"#f0f2f5"):"transparent",borderBottom:`1px solid ${isDarkMode?"#333":"#f0f2f5"}`}}>
               <Av n={c.name} sz={46}/>
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color:"#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color:"#667781"}}>{c.time}</span></div>
-                <div className="flex justify-between items-center"><span className="text-[13px] truncate max-w-[170px]" style={{color:"#667781"}}>{c.lastMsg}</span>{c.unread>0&&<span className="w-5 h-5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{c.unread}</span>}</div>
-                {(() => { const t = filaDoContato(c.id); if (!t) return null; const label = t.status==="BOT"?"Bot":t.status==="AGUARDANDO"?"Aguardando":t.status==="EM_ATENDIMENTO"?"Em atendimento":"Resolvido"; const bg = t.status==="BOT"?"#e2e8ec":t.status==="AGUARDANDO"?"#fff3cd":t.status==="EM_ATENDIMENTO"?"#d1ecf1":"#e7f7ef"; const fg = t.status==="BOT"?"#54656f":t.status==="AGUARDANDO"?"#856404":t.status==="EM_ATENDIMENTO"?"#0c5460":"#00a884"; return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:bg,color:fg}}>{label}</span></div>; })()}
+                <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color: isDarkMode ? "#fff" : "#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color: isDarkMode ? "#aaa" : "#667781"}}>{c.time}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[13px] truncate max-w-[170px]" style={{color: isDarkMode ? "#aaa" : "#667781"}}>{c.lastMsg}</span>{c.unread>0&&<span className="w-5 h-5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center shrink-0">{c.unread}</span>}</div>
+                {(() => { 
+                  const t = filaDoContato(c.id); 
+                  if (!t) return null; 
+                  const isBot = t.atendenteId === "bot" || t.status === "BOT";
+                  if (isBot) return null; // Oculta a tag redundante do bot na lista
+                  
+                  const label = t.status === "AGUARDANDO" ? "Aguardando" : t.status === "EM_ATENDIMENTO" ? t.atendenteNome : "Resolvido"; 
+                  if (!label) return null;
+                  const bg = isBot ? (isDarkMode?"#333":"#e2e8ec") : t.status === "AGUARDANDO" ? (isDarkMode?"#664d03":"#fff3cd") : t.status === "EM_ATENDIMENTO" ? (isDarkMode?"#0c414a":"#d1ecf1") : (isDarkMode?"#0f5132":"#e7f7ef"); 
+                  const fg = isBot ? (isDarkMode?"#ccc":"#54656f") : t.status === "AGUARDANDO" ? (isDarkMode?"#ffdf7e":"#856404") : t.status === "EM_ATENDIMENTO" ? (isDarkMode?"#90e4e1":"#0c5460") : (isDarkMode?"#75b798":"#00a884"); 
+                  return <div className="flex gap-1 mt-1"><span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:10,background:bg,color:fg}}>{label}</span></div>; 
+                })()}
                 {c.tags&&<div className="flex gap-1 mt-1">{c.tags.map(t=><Tag key={t} t={t}/>)}</div>}
               </div>
             </button>
           ))}
         </div>
-        <div className="flex items-center justify-between px-4 py-3" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e9edef"}}>
+        <div className="flex items-center justify-between px-4 py-3" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderTop:`1px solid ${isDarkMode ? "#333" : "#e9edef"}`}}>
           <div className="flex items-center gap-2">
-            <B cls="p-1.5" ch={<Ico.Set/>}/>
-            <div className="flex items-center px-2 py-1 rounded-xl bg-[#3b4a54] cursor-pointer"><Ico.Moon/></div>
+            <B cls="p-1.5" ch={<Ico.Set c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
+            <button onClick={toggleTheme} className="flex items-center px-2 py-1 rounded-xl cursor-pointer border-none" style={{ backgroundColor: isDarkMode ? "#333" : "#3b4a54", outline: "none" }}>
+              {isDarkMode ? <Ico.Sun c="#aaa"/> : <Ico.Moon c="#fff"/>}
+            </button>
           </div>
-          <button onClick={handleLogout} style={{background:"none",border:"none",color:"#128C7E",fontSize:13,cursor:"pointer",padding:0}}>Sair</button>
+          <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#128C7E", fontSize: 13, cursor: "pointer", padding: 0 }}>Sair</button>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col" style={{backgroundColor:"#eae6df",backgroundImage:"radial-gradient(circle,#d4cfc6 1px,transparent 1px)",backgroundSize:"24px 24px"}}>
+      <main className="flex-1 flex flex-col" style={{backgroundColor: isDarkMode ? "#0a0a0a" : "#eae6df",backgroundImage: isDarkMode ? "radial-gradient(circle,#333 1px,transparent 1px)" : "radial-gradient(circle,#d4cfc6 1px,transparent 1px)",backgroundSize:"24px 24px"}}>
         {!sel?(
-          <div className="flex-1 flex flex-col items-center justify-center gap-4"><Ico.Emoji c="#bfc8d0" s={60}/><p className="text-[22px] font-light text-center" style={{color:"#667781"}}>Selecione<br/>um ticket!</p></div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4"><Ico.Emoji c={isDarkMode ? "#333" : "#bfc8d0"} s={60}/><p className="text-[22px] font-light text-center" style={{color: isDarkMode ? "#888" : "#667781"}}>Selecione<br/>um ticket!</p></div>
         ):(<>
-          {/* Header da conversa */}
-          <div className="flex items-center justify-between px-4 py-2" style={{backgroundColor:"#f0f2f5",borderBottom:"1px solid #e2e8ec",minHeight:56}}>
-            <div className="flex items-center gap-3"><Av n={sel.name}/><div><div className="font-semibold text-[15px]" style={{color:"#111b21"}}>{sel.name}</div><div className="text-xs" style={{color:"#667781"}}>{sel.phone}</div></div></div>
+          <div className="flex items-center justify-between px-4 py-2" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderBottom:`1px solid ${isDarkMode ? "#333" : "#e2e8ec"}`,minHeight:56}}>
+            <div className="flex items-center gap-3"><Av n={sel.name}/><div><div className="font-semibold text-[15px]" style={{color: isDarkMode ? "#fff" : "#111b21"}}>{sel.name}</div><div className="text-xs" style={{color: isDarkMode ? "#aaa" : "#667781"}}>{sel.phone}</div></div></div>
             <div className="flex items-center gap-2">
               {sel.tags?.map(t=><Tag key={t} t={t}/>)}
               {(() => {
-                const ticket = filaDoContato(sel.id);
-                if (!ticket) return null;
+  const ticket = filaDoContato(sel.id);
+  if (!ticket) return null;
 
-                if (ticket.status === "BOT") return (
-                  <span style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"#e2e8ec",color:"#54656f",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento pelo Bot</span>
-                    {canForward && (
-                      <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
-                        <button
-                          onClick={async()=>{await loadAtendentes();setEncaminhandoId(ticket.id);}}
-                          style={{padding:"4px 14px",background:"#5B72E8",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
-                        >Encaminhar ▾</button>
-                        {encaminhandoId===ticket.id&&(
-                          <div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:"#fff",border:"1px solid #e9edef",borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.15)",zIndex:100,minWidth:200}}>
-                            <div style={{padding:"8px 12px",fontSize:12,fontWeight:600,color:"#667781",borderBottom:"1px solid #e9edef"}}>Encaminhar para:</div>
-                            {atendentes.length===0
-                              ? <div style={{padding:"8px 12px",fontSize:12,color:"#8696a0"}}>Nenhum atendente disponível</div>
-                              : atendentes.map(a=>(
-                                  <button key={a.id} onClick={()=>{ if(a.online!==false) encaminhar(ticket.id,a.id); }} disabled={a.online===false} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:a.online===false?"not-allowed":"pointer",color:a.online===false?"#aaa":"#111b21",opacity:a.online===false?0.5:1}}>
-                                    <span style={{marginRight:6}}>{a.online ? "🟢" : "🔴"}</span>{a.nome}
-                                  </button>
-                                ))
-                            }
-                            <button onClick={()=>setEncaminhandoId(null)} style={{display:"block",width:"100%",padding:"6px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:12,cursor:"pointer",color:"#8696a0",borderTop:"1px solid #e9edef"}}>
-                              Cancelar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </span>
-                );
+  const isBot = ticket.atendenteId === "bot" || ticket.status === "BOT";
+  const label = isBot ? null // Oculta a tag redundante do bot no cabeçalho
+               : ticket.status === "AGUARDANDO" ? "Aguardando"
+               : ticket.status === "EM_ATENDIMENTO" ? (ticket.atendenteNome ? `Atendido por: ${ticket.atendenteNome}` : null)
+               : "Resolvido";
 
-                if (ticket.status === "AGUARDANDO") return (
-                  <span style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"#fff3cd",color:"#856404",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Aguardando</span>
-                    {canForward ? (
-                      <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
-                        <button
-                          onClick={async()=>{await loadAtendentes();setEncaminhandoId(ticket.id);}}
-                          style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
-                        >Encaminhar ▾</button>
-                        {encaminhandoId===ticket.id&&(
-                          <div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:"#fff",border:"1px solid #e9edef",borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.15)",zIndex:100,minWidth:200}}>
-                            <div style={{padding:"8px 12px",fontSize:12,fontWeight:600,color:"#667781",borderBottom:"1px solid #e9edef"}}>Encaminhar para:</div>
-                            {atendentes.length===0
-                              ? <div style={{padding:"8px 12px",fontSize:12,color:"#8696a0"}}>Nenhum atendente disponível</div>
-                              : atendentes.map(a=>(
-                                  <button key={a.id} onClick={()=>{ if(a.online!==false) encaminhar(ticket.id,a.id); }} disabled={a.online===false} style={{display:"block",width:"100%",padding:"8px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:13,cursor:a.online===false?"not-allowed":"pointer",color:a.online===false?"#aaa":"#111b21",opacity:a.online===false?0.5:1}}>
-                                    <span style={{marginRight:6}}>{a.online ? "🟢" : "🔴"}</span>{a.nome}
-                                  </button>
-                                ))
-                            }
-                            <button onClick={()=>setEncaminhandoId(null)} style={{display:"block",width:"100%",padding:"6px 12px",background:"transparent",border:"none",textAlign:"left",fontSize:12,cursor:"pointer",color:"#8696a0",borderTop:"1px solid #e9edef"}}>
-                              Cancelar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <button onClick={()=>assumir(ticket)} style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Assumir</button>
-                    )}
-                  </span>
-                );
+  const styleMap:any = {
+    BOT: { bg: isDarkMode ? "#333" : "#e2e8ec", fg: isDarkMode ? "#ccc" : "#54656f" },
+    AGUARDANDO: { bg: isDarkMode ? "#664d03" : "#fff3cd", fg: isDarkMode ? "#ffdf7e" : "#856404" },
+    EM_ATENDIMENTO: { bg: isDarkMode ? "#0c414a" : "#d1ecf1", fg: isDarkMode ? "#90e4e1" : "#0c5460" },
+    FINALIZADO: { bg: isDarkMode ? "#0f5132" : "#e7f7ef", fg: isDarkMode ? "#75b798" : "#00a884" }
+  };
 
-                if (ticket.status === "EM_ATENDIMENTO") return (
-                  <span style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"#d1ecf1",color:"#0c5460",padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600}}>Em atendimento</span>
-                    {!isReadOnly && String(ticket.atendenteId)===String(userId) && (
-                      <button onClick={()=>finalizar(ticket)} style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Finalizar</button>
-                    )}
-                  </span>
-                );
+  const currentStatus = isBot ? "BOT" : ticket.status;
+  const { bg, fg } = styleMap[currentStatus] || styleMap["FINALIZADO"];
 
-                return null;
-              })()}
-              <B cls="p-2" ch={<Ico.Phone/>}/><B cls="p-2" ch={<Ico.Search/>}/><B cls="p-2" ch={<Ico.Dots/>}/>
+  return (
+    <span style={{display:"flex",alignItems:"center",gap:8}}>
+      {/* Etiqueta */}
+      {label && (
+        <span style={{ background: bg, color: fg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
+          {label}
+        </span>
+      )}
+
+      {/* Barra de ações condicional */}
+      {userRole === "ATENDENTE" && ticket.status === "AGUARDANDO" && (
+        <button
+          onClick={()=>assumir(ticket)}
+          style={{padding:"4px 14px", background:"#128C7E", color:"#fff", border:"none", borderRadius:8,fontSize:13,fontWeight:600, cursor:"pointer"}}
+        >
+          Assumir
+        </button>
+      )}
+
+      {userRole === "ATENDENTE" && ticket.status === "EM_ATENDIMENTO" && !isBot && (
+        <button
+          onClick={()=>finalizar(ticket)}
+          style={{padding:"4px 14px",background:"#e74c3c",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}
+        >
+          Finalizar
+        </button>
+      )}
+
+      {(userRole === "ADMIN" || userRole === "OBSERVADOR") && ticket.status === "AGUARDANDO" && (
+        <div ref={encaminharMenuRef} className="relative">
+          <button
+            onClick={() => setEncaminharMenuOpen(open => !open)}
+            style={{padding:"4px 14px",background:"#128C7E",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}
+          >
+            Encaminhar
+          </button>
+          {encaminharMenuOpen && (
+            <div
+              className="absolute right-0 top-8 z-20 min-w-[220px] max-h-[260px] overflow-y-auto py-2 rounded-sm border"
+              style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#fff", borderColor: isDarkMode ? "#333" : "#f3f4f6", boxShadow:"0 2px 8px rgba(0,0,0,.3)"}}
+            >
+              {atendentesOnline.length === 0 ? (
+                <div className="px-4 py-2 text-sm" style={{color: isDarkMode ? "#aaa" : "#8696a0"}}>Nenhum atendente online</div>
+              ) : (
+                <div>
+          {atendentesOnline.map(a=>(
+                    <button
+              key={a.id}
+                      onClick={() => {
+                        setEncaminharMenuOpen(false);
+                        encaminhar(ticket.id, String(a.id));
+                      }}
+                      className={`w-full px-4 py-2.5 text-left text-sm border-none bg-transparent cursor-pointer ${isDarkMode ? "hover:bg-[#333]" : "hover:bg-[#f0f2f5]"}`}
+                      style={{color: isDarkMode ? "#fff" : "#111b21",fontFamily:"inherit"}}
+            >
+              {a.online ? "🟢" : "🔴"} {a.nome}
+                    </button>
+          ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </span>
+  );
+})()}
+
+
+              <B cls="p-2" ch={<Ico.Phone c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
+              <B cls="p-2" ch={<Ico.Search c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
+              <div ref={chatMenuRef} className="relative">
+                <B
+                  cls={`p-2 rounded-full ${isDarkMode ? "hover:bg-[#333]" : "hover:bg-[#e2e8ec]"}`}
+                  onClick={() => setChatMenuOpen(open => !open)}
+                  ch={<Ico.Dots c={isDarkMode ? "#aaa" : "#54656f"}/>}
+                />
+                {chatMenuOpen && (
+                  <div
+                    className="absolute right-0 top-10 z-20 min-w-[190px] py-2 rounded-sm border"
+                    style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#fff", borderColor: isDarkMode ? "#333" : "#f3f4f6", boxShadow:"0 2px 8px rgba(0,0,0,.3)"}}
+                  >
+                    <button
+                      onClick={() => {
+                        setChatMenuOpen(false);
+                        setInp("");
+                        setSelId(null);
+                      }}
+                      className={`w-full px-5 py-3 text-left text-sm border-none bg-transparent cursor-pointer ${isDarkMode ? "hover:bg-[#333]" : "hover:bg-[#f0f2f5]"}`}
+                      style={{color: isDarkMode ? "#fff" : "#111b21",fontFamily:"inherit"}}
+                    >
+                      Fechar conversa
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* Área de mensagens */}
           <div className="flex-1 overflow-y-auto px-[60px] py-4"><div className="max-w-[780px] mx-auto flex flex-col gap-1">
             {(msgs[sel.id]||[]).map(m=>(
               <div key={m.id} className="flex w-full" style={{justifyContent:m.from==="agent"?"flex-end":"flex-start"}}>
-                <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?"#d9fdd3":"#fff",borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:"0 1px .5px rgba(11,20,26,.08)"}}>
-                  <span className="text-sm whitespace-pre-wrap block" style={{color:"#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{renderText(m.text)}</span>
-                  <div className="flex items-center justify-end gap-0.5" style={{color:"#667781",fontSize:11,marginTop:2}}>
-                    <span>{m.time}</span>
-                    {m.from==="agent"&&(m.sending ? <Ico.Clock c="#8696a0" s={12}/> : <Ico.DblChk/>)}
-                  </div>
+                <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?(isDarkMode ? "#005c4b" : "#d9fdd3"):(isDarkMode ? "#202c33" : "#fff"),borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:"0 1px .5px rgba(0,0,0,.15)"}}>
+                  <span className="text-sm whitespace-pre-wrap" style={{color: isDarkMode ? "#fff" : "#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{renderTextWithLinks(m.text, isDarkMode)}</span>
+                  <span className="flex items-center justify-end text-[11px] mt-0.5 ml-2 float-right" style={{color: isDarkMode ? "#aaa" : "#667781"}}>{m.time}{m.from==="agent"&&(m.sending ? <Ico.Clock c={isDarkMode?"#aaa":"#8696a0"} s={12}/> : <Ico.DblChk/>)}</span>
                 </div>
               </div>
             ))}<div ref={ref}/>
           </div></div>
-
-          {/* Área de digitação */}
           {isReadOnly ? (
-            <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
-              Modo {userRole === "OBSERVADOR" ? "observador" : "administrador"} — apenas visualização
+            <div className="px-4 py-2 text-center text-xs" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderTop:`1px solid ${isDarkMode ? "#333" : "#e2e8ec"}`,color: isDarkMode ? "#aaa" : "#8696a0"}}>
+              Modo observador — apenas visualização
             </div>
-          ) : !canSend ? (
-            <div className="px-4 py-2 text-center text-xs" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec",color:"#8696a0"}}>
-              {cantSendReason}
+          ) : statusDoContato(sel.id) !== "open" ? (
+            <div className="px-4 py-2 text-center text-xs" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderTop:`1px solid ${isDarkMode ? "#333" : "#e2e8ec"}`,color: isDarkMode ? "#aaa" : "#8696a0"}}>
+              {statusDoContato(sel.id) === "resolved" ? "Atendimento encerrado — não é possível enviar mensagens." :
+               statusDoContato(sel.id) === "pending" ? "Assuma o atendimento para enviar mensagens." :
+               statusDoContato(sel.id) === "bot" ? "Em atendimento pelo Bot. O usuário precisa solicitar um atendente." :
+               "Atendimento indisponível no momento."}
             </div>
           ) : (
-            <div className="px-4 py-2" style={{backgroundColor:"#f0f2f5",borderTop:"1px solid #e2e8ec"}}>
-              <div className="flex items-center gap-2 bg-white rounded-lg px-2 py-1">
-                <B cls="p-1.5" ch={<Ico.Emoji/>}/><B cls="p-1.5" ch={<Ico.Clip/>}/>
-                <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Digite aqui..." className="flex-1 bg-transparent border-none outline-none text-sm py-2" style={{color:"#3b4a54"}}/>
-                {inp.trim()?<B onClick={send} cls="p-1.5" ch={<Ico.Send/>}/>:<B cls="p-1.5" ch={<Ico.Mic/>}/>}
+            <div className="px-4 py-2" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderTop:`1px solid ${isDarkMode ? "#333" : "#e2e8ec"}`}}>
+              <div className="flex items-center gap-2 rounded-lg px-2 py-1" style={{backgroundColor: isDarkMode ? "#2a2a2a" : "#fff"}}>
+                <B cls="p-1.5" ch={<Ico.Emoji c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
+                <B cls="p-1.5" ch={<Ico.Clip c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
+                <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Digite aqui..." className="flex-1 bg-transparent border-none outline-none text-sm py-2" style={{color: isDarkMode ? "#fff" : "#3b4a54"}}/>
+                {inp.trim()?<B onClick={send} cls="p-1.5" ch={<Ico.Send/>}/>:<B cls="p-1.5" ch={<Ico.Mic c={isDarkMode ? "#aaa" : "#54656f"}/>}/>}
               </div>
             </div>
           )}

@@ -9,36 +9,85 @@ Sistema de atendimento via WhatsApp para a EMAP (Empresa Maranhense de Administr
 ## 📐 Arquitetura
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      Frontend (Next.js)                  │
-│  /login  │  /admin (Dashboard, Usuários)  │  /atendimento│
-└───────────────────────┬─────────────────────────────────┘
-                        │ HTTP (proxy interno)
-┌───────────────────────▼─────────────────────────────────┐
-│                   Backend (NestJS)                       │
-│       /auth    │   /atendimento   │   /webhook           │
-└──────────┬────────────────────────────────┬─────────────┘
-           │                                │
-    ┌──────▼──────┐                 ┌───────▼───────┐
-    │  PostgreSQL  │                 │ Evolution API │
-    │  (Docker)   │                 │  (WhatsApp)   │
-    └─────────────┘                 └───────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                     Frontend (Next.js)                          │
+│ /login │ /admin/dashboard │ /admin/usuarios │ /admin/config     │
+│ /atendimento │ API Routes (/api/*)                              │
+└───────────────┬───────────────────────────────┬────────────────┘
+                │ HTTP interno/proxy             │ WebSocket
+                │                                │ evento nova_mensagem
+┌───────────────▼────────────────────────────────▼────────────────┐
+│                       Backend (NestJS)                           │
+│ /auth │ /atendimento │ /configuracoes │ /webhook │ Socket.IO     │
+│ Regras do bot, fila humana, autenticação, configs e Swagger      │
+└───────────────┬───────────────────────────────┬────────────────┘
+                │ TypeORM/PostgreSQL             │ HTTP
+                │                                │ envio de mensagens
+┌───────────────▼────────────────┐       ┌───────▼────────────────┐
+│ PostgreSQL 15 (Docker)          │       │ Evolution API (Docker)  │
+│ Funcionarios, atendimentos,     │       │ Gateway WhatsApp        │
+│ configuracoes                   │       │ Webhook -> NestJS       │
+└───────────────┬────────────────┘       └───────┬────────────────┘
+                │                                │
+                                         ┌───────▼────────┐
+                                         │ Redis           │
+                                         │ suporte/cache   │
+                                         │ Evolution API   │
+                                         └────────────────┘
 ```
 
 | Serviço | Porta | Descrição |
 | :--- | :--- | :--- |
-| Frontend (Next.js) | `3000` | Painel web de atendimento |
-| Backend (NestJS) | `3001` | API REST + lógica do chatbot |
-| Evolution API | `8080` | Gateway WhatsApp |
-| PostgreSQL | `5432` | Banco de dados |
+| Frontend (Next.js) | `3000` | Painel web, páginas administrativas e rotas API internas (`/api/*`) |
+| Backend (NestJS) | `3001` | API REST, Swagger, lógica do chatbot, autenticação, fila de atendimento, configurações e Socket.IO |
+| Evolution API | `8080` | Gateway WhatsApp; envia webhooks para o backend e recebe comandos de envio de mensagem |
+| PostgreSQL | `5432` | Banco de dados das tabelas `Funcionarios`, `atendimentos` e `configuracoes` |
+| Redis | `6379` | Serviço de suporte/cache usado pela Evolution API |
+
+Fluxo principal:
+
+1. O usuário acessa o painel Next.js em `http://localhost:3000`.
+2. As rotas internas do Next.js (`/api/*`) encaminham autenticação, usuários, fila e uptime para o NestJS; envio e leitura de mensagens também podem consultar a Evolution API.
+3. A Evolution API recebe e envia mensagens do WhatsApp e dispara webhooks para o NestJS.
+4. O NestJS processa o fluxo do bot, consulta configurações de horário, atualiza a fila de atendimento e persiste dados no PostgreSQL.
+5. O backend emite eventos Socket.IO para o frontend atualizar conversas em tempo real.
 
 ---
 
 ## ✅ Pré-requisitos
 
-- [Node.js](https://nodejs.org) v18+
-- [Docker](https://docker.com) e Docker Compose
-- [Git](https://git-scm.com)
+- [Git](https://git-scm.com) 2.x ou superior, para clonar o repositório.
+- [Node.js](https://nodejs.org) **20.9.0 ou superior**. O frontend usa **Next.js 16.1.6** e o backend usa **NestJS 11**, ambos com dependências que exigem Node 20+.
+- `npm` 10+ ou a versão instalada junto com o Node 20+, para instalar as dependências de `nest/` e `frontend/whatsapp-atendimento/`.
+- [Docker](https://docker.com) com Docker Compose v2. Em Windows, instale o **Docker Desktop** com backend **WSL 2** habilitado e uma distribuição Linux instalada no WSL. Recomenda-se **Ubuntu 22.04 LTS** pela estabilidade e compatibilidade com Docker Desktop; **Ubuntu 24.04 LTS** também é compatível.
+- Acesso à internet na primeira instalação, pois `npm install` baixa pacotes do npm e `docker compose up -d` baixa as imagens Docker.
+- Conta/sessão de WhatsApp disponível para conectar a instância da Evolution API via QR Code.
+- Processador com arquitetura **64 bits**. Recomenda-se CPU **x86_64/amd64** ou **ARM64** compatível com Docker Desktop, Node.js 20+ e as imagens Docker utilizadas.
+
+**Recursos recomendados para ambiente local:**
+
+| Recurso | Mínimo funcional | Recomendado |
+| :--- | :--- | :--- |
+| Processador | 64 bits, 2 núcleos | 64 bits, 4 núcleos ou mais |
+| Memória RAM | 8 GB | 16 GB |
+| Armazenamento livre | 12 GB | 20 GB ou mais |
+
+Para Windows com Docker Desktop e WSL 2, prefira processadores com suporte a virtualização por hardware habilitado na BIOS/UEFI, como Intel VT-x ou AMD-V. Em máquinas com apenas 2 núcleos, o sistema tende a funcionar, mas `npm install`, builds do Next.js e execução simultânea de frontend, backend e containers podem ficar lentos.
+
+**Estimativa de armazenamento**
+
+Para conseguir clonar, instalar dependências e executar o sistema localmente, reserve pelo menos **12 GB livres**. Para trabalhar com folga, builds, cache do Docker e crescimento do banco, o ideal é **20 GB ou mais**.
+
+| Item | Estimativa |
+| :--- | :--- |
+| Repositório clonado, incluindo arquivos de documentação e imagens | ~1,5 GB |
+| Dependências `node_modules` do backend NestJS | ~300 MB a 600 MB |
+| Dependências `node_modules` do frontend Next.js | ~500 MB a 1 GB |
+| Imagens Docker: Evolution API, PostgreSQL e Redis | ~1,5 GB a 3 GB |
+| Volumes Docker iniciais: PostgreSQL, Redis e Evolution instances | ~500 MB a 2 GB |
+| Cache de npm, cache de Docker e builds locais (`dist/`, `.next/`) | ~2 GB a 5 GB |
+
+O uso de disco aumenta conforme o volume de mensagens, mídias recebidas pelo WhatsApp, logs, backups e histórico do PostgreSQL. Em ambiente de produção, dimensione o armazenamento pelo volume esperado de atendimentos e mantenha política de limpeza/backup para os volumes Docker.
 
 ---
 
@@ -59,7 +108,7 @@ cd evolution
 docker compose up -d
 ```
 
-Isso inicia os serviços: **PostgreSQL**, **Evolution API** e **Redis**.
+Isso inicia os serviços utilizados pelo sistema: **PostgreSQL**, **Evolution API** e **Redis**.
 ### 2.1. Configurando a evolution
 1-Entre em http://localhost:8080/manager/ <br>
 2-Clique em criar uma nova instancia no canto superior direito <br>
@@ -154,6 +203,9 @@ Acesse: [http://localhost:3000](http://localhost:3000)
 
 Na primeira inicialização, o sistema verifica se existe algum administrador cadastrado. Caso não exista, **um administrador padrão é criado automaticamente com credenciais definidas no código**.
 
+- Usuário: `admin@admin.com`
+- Senha: 123456
+
 > ⚠️ **ATENÇÃO — Antes de ir para produção:**
 > - Altere imediatamente as credenciais do administrador padrão pelo painel `/admin/usuarios`
 > - Considere remover o seed automático em `nest/src/auth/auth.service.ts` e criar o primeiro admin manualmente via endpoint `POST /auth/registrar`
@@ -170,6 +222,7 @@ Na primeira inicialização, o sistema verifica se existe algum administrador ca
 - Redirecionamento automático conforme o perfil:
   - **ADMIN** → `/admin/dashboard`
   - **ATENDENTE** → `/atendimento`
+  - **OBSERVADOR** → `/atendimento`
 
 ---
 
@@ -179,7 +232,9 @@ Acessível apenas para usuários com perfil **ADMIN**.
 
 #### Dashboard (`/admin/dashboard`)
 
-Visão geral do sistema com 4 cards de métricas:
+Visão geral do sistema com 6 cards de métricas:
+
+![alt text](image.png)
 
 | Card | Descrição |
 | :--- | :--- |
@@ -187,6 +242,9 @@ Visão geral do sistema com 4 cards de métricas:
 | Usuários ativos | Funcionários com status `ativo = true` |
 | Administradores | Usuários com perfil ADMIN |
 | Atendentes | Usuários com perfil ATENDENTE |
+| Observadores | Usuários com perfil OBSERVADOR |
+| Uptime do sistema | Duração da sessão ativa |
+
 
 ---
 
@@ -207,8 +265,10 @@ Gerenciamento completo de funcionários do sistema.
 
 | Perfil | Descrição |
 | :--- | :--- |
-| `ATENDENTE` | Acessa apenas a tela de atendimento |
-| `ADMIN` | Acessa o painel administrativo completo |
+| `ATENDENTE` | Acessa apenas a tela de atendimento e assume os atendimentos |
+| `ADMIN` | Acessa o painel administrativo completo e pode encaminhar atendimentos para um atendente |
+| `OBSERVADOR`| Acessa a tela de atendimento (igual ao ADMIN), mas sem permissões administrativas; pode encaminhar atendimentos para um atendente |
+
 
 ---
 
@@ -237,9 +297,9 @@ Quando um cliente é encaminhado pelo robô para atendimento humano, aparece aut
 - **Finalizar** — marca como `FINALIZADO` (robô volta a responder o usuário)
 - A fila atualiza automaticamente a cada **8 segundos**
 
-**Modo Observador (ADMIN):**
+**Modo Observador (ADMIN/OBSERVADOR):**
 
-Administradores acessam a tela de atendimento em modo somente leitura:
+Administradores e Observadores acessam a tela de atendimento em modo somente leitura:
 - Visualizam todas as conversas e status da fila
 - **Não** podem enviar mensagens
 - **Não** podem assumir ou finalizar tickets
@@ -262,6 +322,8 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 | `POST` | `/auth/registrar` | `{"nome":"...","email":"...","senha":"...","role":"ATENDENTE"}` | Cria novo funcionário | **Sim** |
 | `GET` | `/auth/funcionarios` | — | Lista todos os funcionários | **Sim** |
 | `PATCH` | `/auth/funcionarios/:id` | `{"nome":"...","role":"...","active":true}` | Atualiza dados ou status do funcionário | **Sim** |
+| `POST`| `/auth/heartbeat` | — | Atualiza o campo lastSeen do funcionário, registrando o último momento em que esteve ativo no sistema | Não |
+| `GET`| `/auth/uptime` | — | Retorna o tempo que o servidor está em execução contínua | Não|
 | `GET` | `/auth/perfil` | — | Retorna dados do usuário autenticado | **Sim** |
 
 ---
@@ -273,6 +335,18 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 | `GET` | `/atendimento/fila` | — | Lista tickets com status `AGUARDANDO` ou `EM_ATENDIMENTO` | **Sim** |
 | `PATCH` | `/atendimento/assumir/:id` | `:id` | Muda status para `EM_ATENDIMENTO` | **Sim** |
 | `PATCH` | `/atendimento/finalizar/:id` | `:id` | Muda status para `FINALIZADO`, libera o robô | **Sim** |
+| `GET` | `/atendimento/atendentes/online `| — | Lista atendentes disponíveis para assumir atendimento | **Sim** |
+| `POST`| `/atendimento/encaminhar ` | — |Encaminha um atendimento para um atendente específico | **Sim** | 
+
+
+---
+
+### ⚙️ Configurações (`/configuracoes`)
+
+| Método | Rota | Body | Descrição | Token? |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/configuracoes` | — | Retorna horários de funcionamento e mensagem de fora do horário | Não |
+| `POST` | `/configuracoes` | `{"horarios":[...],"mensagemForaHorario":"..."}` | Atualiza horários e mensagem automática usada pelo robô | Não |
 
 ---
 
@@ -280,7 +354,8 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 
 | Método | Rota | Descrição | Token? |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/webhook` | Recebe eventos do WhatsApp (mensagens recebidas) e executa a lógica do chatbot | Não |
+| `POST` | `/webhook` | Recebe eventos do WhatsApp, executa a lógica principal do chatbot e emite atualização via Socket.IO | Não |
+| `POST` | `/webhook/evolution` | Rota alternativa/compatível para eventos da Evolution API | Não |
 
 ---
 
@@ -290,8 +365,9 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 
 | Tabela | Descrição |
 | :--- | :--- |
-| `Funcionarios` | Usuários do sistema (atendentes e admins) |
+| `Funcionarios` | Usuários do sistema (atendentes, observadores e admins) |
 | `atendimentos` | Fila de atendimento humano |
+| `configuracoes` | Horários de funcionamento e mensagem automática de fora do expediente |
 
 ### Estrutura — `Funcionarios`
 
@@ -301,19 +377,32 @@ Administradores acessam a tela de atendimento em modo somente leitura:
 | `nome` | varchar | Nome do funcionário |
 | `email` | varchar (unique) | E-mail de acesso |
 | `senha` | varchar | Senha criptografada (bcrypt) |
-| `role` | varchar | `ADMIN` ou `ATENDENTE` |
+| `role` | varchar | `ADMIN`, `ATENDENTE` ou `OBSERVADOR` |
 | `active` | boolean | Status ativo/inativo (padrão: `true`) |
 | `createdAt` | timestamp | Data de criação |
+| `lastSeen`| timestamp | Data e hora da última atividade do usuário no sistema |
+
 
 ### Estrutura — `atendimentos`
 
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
-| `id` | serial | Identificador único |
+| `id` | integer | Identificador único |
 | `remoteJid` | varchar | ID do WhatsApp do cliente |
 | `nome` | varchar | Nome do cliente |
-| `status` | varchar | `AGUARDANDO`, `EM_ATENDIMENTO` ou `FINALIZADO` |
+| `status` | varchar | `BOT`, `AGUARDANDO`, `EM_ATENDIMENTO` ou `FINALIZADO` |
 | `dataCriacao` | timestamp | Data de entrada na fila |
+| `atendenteId` | text | Identificador do atendente responsável pelo atendimento |
+
+
+### Estrutura — `configuracoes`
+
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `id` | integer | Identificador único |
+| `horarios` | jsonb | Lista de dias, status ativo/inativo e horários de início/fim |
+| `mensagemForaHorario` | varchar | Mensagem enviada quando o cliente solicita atendimento humano fora do horário configurado |
+
 
 ---
 

@@ -1,0 +1,13 @@
+- No Dashboard, Em "Usuários online agora" e no card de "Atendentes" retirar os usuários inativos.
+- Colocar o nome do atendente em todas as mensagens que ele enviar
+- Retirar a mensagem inicial que pede nome e email e colocar na conversa com o atendente
+- Verificar o problema na demora em aparecer que o atendente está online na opção de encaminhar. Verificar se é problema dos minutos ou se é no front. 
+- Arrumar a confirmação de leitura da mensagem. 
+- Retirar os ícones que não precisa e colocar pra funcionar os que são necessários. Por exemplo, a lupa que fica dentro das conversas.
+- Verificar pq as conversas estão sumindo. Como a Evolution guarda as mensagens.
+- Proibir voltar pra tela sem fazer login
+- Mudar o horário de atendimento para as 17h
+- Verificar se tá atualizando automaticamente quando atendente manda mensagem. 
+- Trabalhar com um número para vários departamentos. Opção de criar "Equipes". Todos terão o mesmo fluxo. A opção é criar views de atendimentos pra cada departamento.
+- Para o relatório, verificar se as conversas estão no nosso banco de dados ou na Evolution. Se tiver na API, fazer a transferência.
+- Fazer a conversa encerrar por tempo de inatividade. (10 minutos sem resposta do usuário.)

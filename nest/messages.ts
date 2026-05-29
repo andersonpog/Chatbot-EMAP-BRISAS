@@ -6,13 +6,24 @@ Para que possamos dar continuidade ao atendimento, me informe o seu nome e email
   // O que estava no Word como: "Menu principal"
 MENU_PRINCIPAL: `Para garantir a nossa comunicação, é importante que saiba que a cada interação, você tem o tempo de 1 hora para responder ou o chat será finalizado automaticamente.
 Por favor, escolha uma das opções abaixo digitando o número:
+
 1 - Visitas ao Porto
 2 - Trabalhe conosco
 3 - Oferta Comercial
 4 - Falar com Analista da Ouvidoria
 0 - Encerrar atendimento`,
   
-OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opção desejada.",
+
+OPCAO_INVALIDA: `Opção inválida.
+
+
+Por favor, escolha umas das opções abaixo:
+1 - Retornar ao menu anterior 
+0 - Encerrar atendimento`,
+
+BOT_MENSAGEM: `🤖 Assistente Virtual `,
+
+
 
     SUBMENU_VISITAS_PORTO: `O que você deseja Fazer?
     1 - Voltar ao menu inicial
@@ -85,6 +96,8 @@ OPCAO_INVALIDA: "Ops! Não entendi. Por favor, digite apenas o número da opçã
 
     Estamos à disposição!
     Digite: 1 - Retornar ao menu anterior 0 - Encerrar atendimento`,
+
+
     
 DESPEDIDA: "✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente."
 

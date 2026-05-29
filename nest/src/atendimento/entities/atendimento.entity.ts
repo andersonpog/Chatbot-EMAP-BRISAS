@@ -3,20 +3,20 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeor
 @Entity('atendimentos')
 export class Atendimento {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column()
-  remoteJid: string; // ID do WhatsApp
+  remoteJid!: string; // ID do WhatsApp
 
   @Column()
-  nome: string;
+  nome!: string;
 
   @Column({ default: 'BOT' }) // BOT, AGUARDANDO, EM_ATENDIMENTO, FINALIZADO
-  status: string;
+  status!: string;
 
   @Column({ nullable: true })
-  atendenteId: string; // ID do funcionário (UUID) que assumiu a conversa
+  atendenteId!: string; // ID do funcionário (UUID) que assumiu a conversa
 
   @CreateDateColumn()
-  dataCriacao: Date;
+  dataCriacao!: Date;
 }

@@ -1,0 +1,8 @@
+- Ajustar a resposta de nome e email nas mensagens, pois tá aceitando qualquer coisa. Padronizar o email.
+- Ajustar a opção de quando a pessoa digita uma opção errada. Deve aparecer uma mensagem com as opções, ao invés de ser apenas, "Ops, não entendi..."
+- Na aba do admin/observador, deve ser possível identificar qual atendente está atendendo.
+- Precisa atualizar automaticamente quando um atendente assume
+- Criar uma mensagem de apresentação do atendente.
+- Se possível, fazer uma identificação para o cliente saber com quem está conversando. (Usar o vídeo/imagem que foram enviados como referência)
+- Ajustar as notificações de conversas do BOT
+- Na view do admin, as conversas que foram para pendentes, devem ficar como resolvidas.  

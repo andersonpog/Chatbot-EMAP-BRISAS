@@ -17,9 +17,13 @@ export async function GET(req: NextRequest) {
     });
     if (res.ok) {
       const data = await res.json();
-      return NextResponse.json({ nome: data.usuarioLogado?.nome || payload.email, role: payload.role });
+      return NextResponse.json({
+        id: data.usuarioLogado?.userId || payload.sub,
+        nome: data.usuarioLogado?.nome || payload.email,
+        role: payload.role,
+      });
     }
-    return NextResponse.json({ nome: payload.email, role: payload.role });
+    return NextResponse.json({ id: payload.sub, nome: payload.email, role: payload.role });
   } catch {
     return NextResponse.json({ error: "Token inválido" }, { status: 401 });
   }

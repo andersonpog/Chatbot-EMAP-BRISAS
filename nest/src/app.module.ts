@@ -7,6 +7,8 @@ import { EvolutionModule } from './evolution/evolution.module';
 import { AtendimentoController } from './atendimento/atendimento.controller';
 import { AtendimentoModule } from './atendimento/atendimento.module';
 import { Atendimento } from './atendimento/entities/atendimento.entity';
+import { Configuracao } from './configuracoes/entities/configuracoe.entity';
+import { ConfiguracoesModule } from './configuracoes/configuracoes.module';
 
 
 @Module({
@@ -15,12 +17,13 @@ import { Atendimento } from './atendimento/entities/atendimento.entity';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
-      entities: [Funcionario, Atendimento],
+      entities: [Funcionario, Atendimento, Configuracao],
       synchronize: false,
     }),
     AuthModule,
     EvolutionModule,
     AtendimentoModule,
+    ConfiguracoesModule,
   ],
   controllers: [AtendimentoController],
 })
