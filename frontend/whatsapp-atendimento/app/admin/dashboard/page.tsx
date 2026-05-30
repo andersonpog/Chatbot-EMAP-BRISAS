@@ -54,9 +54,9 @@ export default function DashboardPage() {
   }, []);
 
   const ativos    = lista.filter(u => u.active);
-  const admins    = lista.filter(u => u.role === "ADMIN");
-  const atendentes = lista.filter(u => u.role === "ATENDENTE");
-  const observadores = lista.filter(u => u.role === "OBSERVADOR");
+  const admins    = ativos.filter(u => u.role === "ADMIN");
+  const atendentes = ativos.filter(u => u.role === "ATENDENTE");
+  const observadores = ativos.filter(u => u.role === "OBSERVADOR");
 
   const onlineAtendentes  = atendentes.filter(u => isOnline(u.lastSeen));
   const onlineObservadores = observadores.filter(u => isOnline(u.lastSeen));

@@ -57,8 +57,8 @@ export class WebhookController {
         });
         await this.atendimentoRepo.save(atendimento);
 
-        // Envia Saudação e o Menu Principal
-        await this.evolutionService.enviarMensagem(instance, sender, BotMessages.SAUDACAO_INICIAL + "\n\n" + BotMessages.MENU_PRINCIPAL);
+        // Envia o Menu Principal como primeira mensagem do atendimento
+        await this.evolutionService.enviarMensagem(instance, sender, BotMessages.MENU_PRINCIPAL);
         return { received: true };
       }
 

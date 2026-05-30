@@ -7,10 +7,12 @@ import { AuthController } from './auth.controller';
 import { Funcionario } from './entities/funcionario.entity';
 import { JwtStrategy } from './jwt.strategy'
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EvolutionModule } from '../evolution/evolution.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Funcionario]),
+    EvolutionModule,
     PassportModule.register({ defaultStrategy: 'jwt' }), // Garante o padrão
     JwtModule.registerAsync({
       imports: [ConfigModule],

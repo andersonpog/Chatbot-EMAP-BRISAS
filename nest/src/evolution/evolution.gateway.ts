@@ -9,4 +9,8 @@ export class EvolutionGateway {
   emitirNovaMensagem() {
     this.server.emit('nova_mensagem');
   }
+
+  emitirPresencaAtualizada() {
+    this.server.emit('presenca_atualizada');
+  }
 }

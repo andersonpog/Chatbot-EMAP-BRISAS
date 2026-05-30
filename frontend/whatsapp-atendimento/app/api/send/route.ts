@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const EVO_URL = process.env.EVOLUTION_API_URL;
 const EVO_KEY = process.env.EVOLUTION_API_KEY;
 const EVO_INSTANCE = process.env.EVOLUTION_INSTANCE;
+const NESTJS_URL = process.env.NESTJS_API_URL;
 
 export async function POST(req: NextRequest) {
   if (!EVO_URL || !EVO_KEY || !EVO_INSTANCE) {
@@ -37,6 +38,11 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await res.json();
+
+    if (NESTJS_URL) {
+      await fetch(`${NESTJS_URL}/webhook/notify-message-sent`, { method: "POST" }).catch(() => {});
+    }
+
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

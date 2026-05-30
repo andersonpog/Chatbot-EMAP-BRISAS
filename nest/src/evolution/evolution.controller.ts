@@ -22,6 +22,12 @@ export class EvolutionController {
     private readonly configuracoesService: ConfiguracoesService,
   ) {}
 
+  @Post('notify-message-sent')
+  notifyMessageSent() {
+    this.evolutionGateway.emitirNovaMensagem();
+    return { status: 200 };
+  }
+
   @Post()
   async receberEvento(@Body() payload: any) {
     const { event, data, instance } = payload;
@@ -98,18 +104,10 @@ export class EvolutionController {
           await this.evolutionService.enviarMensagem(
             instance, 
             remoteJid, 
-            BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.SAUDACAO_INICIAL
-          );
-          estadosUsuarios[remoteJid] = 'SAUDACAO_INICIAL';
-        } 
-        else if (estadoAtual === 'SAUDACAO_INICIAL') {
-          await this.evolutionService.enviarMensagem(
-            instance, 
-            remoteJid, 
             BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
           );
           estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
-        }
+        } 
 
         // --- PROCESSANDO MENU PRINCIPAL ---
         else if (estadoAtual === 'MENU_PRINCIPAL') {

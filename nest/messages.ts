@@ -1,10 +1,8 @@
 export const BotMessages = {
-  // O que estava no Word como: "Mensagem de boas vindas"
-SAUDACAO_INICIAL: `Olá!Bem-vindo ao atendimento Ouvidoria-EMAP. 
-Para que possamos dar continuidade ao atendimento, me informe o seu nome e email`,
-
   // O que estava no Word como: "Menu principal"
-MENU_PRINCIPAL: `Para garantir a nossa comunicação, é importante que saiba que a cada interação, você tem o tempo de 1 hora para responder ou o chat será finalizado automaticamente.
+MENU_PRINCIPAL: `Olá! Bem-vindo ao atendimento Ouvidoria-EMAP.
+
+Para garantir a nossa comunicação, é importante que saiba que a cada interação, você tem o tempo de 1 hora para responder ou o chat será finalizado automaticamente.
 Por favor, escolha uma das opções abaixo digitando o número:
 
 1 - Visitas ao Porto

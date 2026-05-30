@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Funcionario } from './entities/funcionario.entity';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import { EvolutionGateway } from '../evolution/evolution.gateway';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
     @InjectRepository(Funcionario)
     private funcionarioRepository: Repository<Funcionario>,
     private jwtService: JwtService,
+    private evolutionGateway: EvolutionGateway,
   ) {}
 
   // Este método roda toda vez que o servidor liga
@@ -75,6 +77,12 @@ async registrar(nome: string, email: string, senha: string, role: string) {
 
   async heartbeat(id: string) {
     await this.funcionarioRepository.update(id, { lastSeen: new Date() });
+    this.evolutionGateway.emitirPresencaAtualizada();
+  }
+
+  async logout(id: string) {
+    await this.funcionarioRepository.update(id, { lastSeen: null });
+    this.evolutionGateway.emitirPresencaAtualizada();
   }
 
   getUptime() {

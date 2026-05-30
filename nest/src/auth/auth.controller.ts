@@ -44,6 +44,13 @@ async registrar(@Body() body: any) {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  async logout(@Request() req) {
+    await this.authService.logout(req.user.userId);
+    return { ok: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('uptime')
   getUptime() {
     return this.authService.getUptime();

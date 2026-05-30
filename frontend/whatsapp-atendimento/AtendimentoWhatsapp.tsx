@@ -64,6 +64,11 @@ function fmtPhone(jid: string): string {
   return "+" + jid.split("@")[0];
 }
 
+function formatAgentMessage(text: string, agentName: string): string {
+  const name = agentName.trim() || "Atendente";
+  return `🟢 ${name} | Atendente\n\n${text.trim()}`;
+}
+
 // Resolve o JID canônico: mensagens LID usam remoteJidAlt como JID real
 function canonicalJid(key: EvoMsg["key"]): string {
   if (key.addressingMode === "lid" && key.remoteJidAlt) return key.remoteJidAlt;
@@ -212,7 +217,7 @@ export default function WaAtendimento() {
   useEffect(() => {
     const ping = () => fetch("/api/auth/heartbeat", { method: "POST" }).catch(() => {});
     ping();
-    const t = setInterval(ping, 30000);
+    const t = setInterval(ping, 10000);
     return () => clearInterval(t);
   }, []);
 
@@ -353,7 +358,9 @@ export default function WaAtendimento() {
 
     const texto = ` 🟢 ${data.nome} | Atendente
 
-  Olá! Vou seguir com seu atendimento.`;
+  Olá! Vou seguir com seu atendimento.
+  
+  Para que possamos dar continuidade ao atendimento, me informe o seu nome e email`;
 
     await fetch("/api/send", {
       method: "POST",
@@ -409,7 +416,7 @@ export default function WaAtendimento() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         number: item.remoteJid,
-        text: "✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente.",
+        text: formatAgentMessage("✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente.", userName),
       }),
     });
     await fetch(`/api/atendimento/${item.id}`, {
@@ -438,7 +445,7 @@ export default function WaAtendimento() {
 
   const send = async () => {
     if (!inp.trim() || !sel || statusDoContato(sel.id) !== "open") return;
-    const text = inp.trim();
+    const text = formatAgentMessage(inp, userName);
     const msgId = `m${Date.now()}`;
     const newMsg: Msg = {
       id: msgId, cid: sel.id, text,
@@ -447,6 +454,7 @@ export default function WaAtendimento() {
     };
     // 1. Atualização otimista — desenha na tela imediatamente
     setMsgs(p => ({ ...p, [sel.id]: [...(p[sel.id] || []), newMsg] }));
+    setContacts(p => p.map(c => c.id === sel.id ? { ...c, lastMsg: text, time: newMsg.time } : c));
     setInp("");
     // 2. Envio real em background — não bloqueia a UI
     try {
@@ -482,6 +490,27 @@ export default function WaAtendimento() {
 
   useEffect(() => {
     loadAtendentesOnline();
+    const t = setInterval(loadAtendentesOnline, 5000);
+    return () => clearInterval(t);
+  }, [loadAtendentesOnline]);
+
+  useEffect(() => {
+    if (encaminharMenuOpen) loadAtendentesOnline();
+  }, [encaminharMenuOpen, loadAtendentesOnline]);
+
+  useEffect(() => {
+    const backendUrl = typeof window !== 'undefined'
+      ? `http://${window.location.hostname}:3001`
+      : 'http://localhost:3001';
+    const socket = io(backendUrl);
+
+    socket.on("presenca_atualizada", () => {
+      loadAtendentesOnline();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [loadAtendentesOnline]);
 
   const encaminhar = async (atendimentoId: number, atendenteId: string) => {
@@ -502,7 +531,9 @@ export default function WaAtendimento() {
 
       const texto = ` 🟢 ${data.nomeAtendente} | Atendente
     
-    Olá! Vou seguir com seu atendimento.`;
+    Olá! Vou seguir com seu atendimento.
+    
+    Para que possamos dar continuidade ao atendimento, me informe o seu nome e email`;
 
       await fetch("/api/send", {
         method: "POST",

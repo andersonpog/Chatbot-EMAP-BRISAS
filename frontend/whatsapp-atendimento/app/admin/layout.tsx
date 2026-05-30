@@ -29,7 +29,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const ping = () => fetch("/api/auth/heartbeat", { method: "POST" }).catch(() => {});
     ping();
-    const t = setInterval(ping, 30000);
+    const t = setInterval(ping, 10000);
     return () => clearInterval(t);
   }, []);
 
