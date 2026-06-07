@@ -259,13 +259,8 @@ export default function WaAtendimento() {
       : 'http://localhost:3001';
     const socket = io(backendUrl);
     socket.on("nova_mensagem", () => {
-      loadFila(); // Aproveita e atualiza a fila instantaneamente também!
-      loadMessages(false); // Atualiza os dados em background silenciosamente, sem piscar a tela
-
-      // O encaminhamento avisa a mudança de fila antes da mensagem de apresentação
-      // terminar de ser enviada pela Evolution. Recarrega mais uma vez para cobrir essa corrida.
-      window.setTimeout(() => loadMessages(false), 2500);
-      window.setTimeout(() => loadMessages(false), 6000);
+      loadFila();
+      loadMessages(false);
     });
 
 
@@ -412,7 +407,10 @@ export default function WaAtendimento() {
   };
 
   const finalizar = async (item: FilaItem) => {
-    // Envia mensagem de encerramento ANTES de finalizar o ticket
+    await fetch(`/api/atendimento/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "finalizar" }),
+    });
     await fetch("/api/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -421,11 +419,7 @@ export default function WaAtendimento() {
         remetente: userName,
       }),
     });
-    await fetch(`/api/atendimento/${item.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "finalizar" }),
-    });
-    loadFila();
+    await loadFila();
   };
 
   const list = contacts.filter(c => {

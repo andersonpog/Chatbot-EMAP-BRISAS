@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, In } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { Atendimento } from '../atendimento/entities/atendimento.entity';
 import { EvolutionService } from './evolution.service';
+import { EvolutionGateway } from './evolution.gateway';
 import { BotMessages } from '../../messages';
 
 const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos
@@ -16,6 +17,7 @@ export class InatividadeService {
     @InjectRepository(Atendimento)
     private readonly atendimentoRepo: Repository<Atendimento>,
     private readonly evolutionService: EvolutionService,
+    private readonly evolutionGateway: EvolutionGateway,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -39,6 +41,7 @@ export class InatividadeService {
           BotMessages.INATIVIDADE,
         );
         await this.atendimentoRepo.update(ticket.id, { status: 'FINALIZADO' });
+        this.evolutionGateway.emitirNovaMensagem();
         this.logger.log(`Ticket #${ticket.id} (${ticket.nome}) finalizado por inatividade.`);
       } catch (err) {
         this.logger.error(`Erro ao finalizar ticket #${ticket.id} por inatividade: ${err.message}`);

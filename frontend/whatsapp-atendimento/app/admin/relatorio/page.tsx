@@ -23,13 +23,20 @@ interface RegistroRelatorio {
 
 interface Atendente { id: string; nome: string }
 
-const fmt = (iso: string) => {
-  const d = new Date(iso);
-  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
+const toUTC = (iso: string) => (iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z');
+
+const fmt = (iso: string) =>
+  new Date(toUTC(iso)).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
 
 const fmtHora = (iso: string) =>
-  new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  new Date(toUTC(iso)).toLocaleTimeString('pt-BR', {
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
 
 const statusColor: Record<string, string> = {
   FINALIZADO:    '#25D366',

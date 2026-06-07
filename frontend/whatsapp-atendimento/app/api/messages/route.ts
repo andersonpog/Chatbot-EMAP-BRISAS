@@ -19,7 +19,14 @@ export async function GET() {
         "Content-Type": "application/json",
         apikey: EVO_KEY,
       },
-      body: JSON.stringify({ where: {}, limit: 500 }),
+      body: JSON.stringify({
+        where: {
+          messageTimestamp: {
+            gte: Math.floor((Date.now() - 60 * 24 * 60 * 60 * 1000) / 1000),
+          },
+        },
+        limit: 2000,
+      }),
       cache: "no-store",
     });
 
