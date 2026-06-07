@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, In, Brackets } from 'typeorm';
+import { DataSource, Repository, MoreThan, In, Brackets } from 'typeorm';
 import { Atendimento } from './entities/atendimento.entity';
-import { Funcionario } from '../auth/entities/funcionario.entity'; // ajuste o caminho conforme sua estrutura
+import { Funcionario } from '../auth/entities/funcionario.entity';
+import { Mensagem } from './entities/mensagem.entity';
 
 @Injectable()
 export class AtendimentoService {
@@ -12,6 +13,8 @@ export class AtendimentoService {
 
     @InjectRepository(Funcionario)
     private readonly funcionarioRepository: Repository<Funcionario>,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   // Lista fila ativa + finalizados de hoje (para o front saber mover para "Resolvidos")
@@ -140,5 +143,58 @@ export class AtendimentoService {
   };
 }
 
+  async gerarRelatorio(filtros: {
+    dataInicio: string;
+    dataFim: string;
+    numero?: string;
+    atendenteId?: string;
+  }) {
+    try {
+      const inicio = new Date(filtros.dataInicio + 'T00:00:00');
+      const fim    = new Date(filtros.dataFim    + 'T23:59:59');
 
+      const query = this.atendimentoRepo
+        .createQueryBuilder('a')
+        .where('a.dataCriacao >= :inicio AND a.dataCriacao <= :fim', { inicio, fim });
+
+      if (filtros.numero) {
+        query.andWhere('a.remoteJid LIKE :numero', { numero: `%${filtros.numero.replace(/\D/g, '')}%` });
+      }
+      if (filtros.atendenteId) {
+        query.andWhere('a.atendenteId = :atendenteId', { atendenteId: filtros.atendenteId });
+      }
+
+      const atendimentos = await query.orderBy('a.dataCriacao', 'DESC').getMany();
+
+      const atendentesIds = [...new Set(
+        atendimentos.map(a => a.atendenteId).filter(id => id && id !== 'bot')
+      )];
+      let funcionarios: Funcionario[] = [];
+      if (atendentesIds.length > 0) {
+        funcionarios = await this.funcionarioRepository.find({ where: { id: In(atendentesIds) } });
+      }
+
+      const ids = atendimentos.map(a => a.id).filter(Boolean);
+      let todasMensagens: any[] = [];
+      if (ids.length > 0) {
+        todasMensagens = await this.dataSource.getRepository(Mensagem).find({
+          where: { atendimentoId: In(ids) },
+          order: { dataEnvio: 'ASC' },
+        });
+      }
+
+      return atendimentos.map(a => {
+        const func = funcionarios.find(fn => String(fn.id) === String(a.atendenteId));
+        const mensagens = todasMensagens.filter(m => m.atendimentoId === a.id);
+        return {
+          ...a,
+          atendenteNome: func?.nome ?? (a.atendenteId === 'bot' ? 'Bot Ouvidoria' : null),
+          mensagens,
+        };
+      });
+    } catch (err) {
+      console.error('[RELATORIO ERRO]', err?.message ?? err);
+      throw err;
+    }
+  }
 }

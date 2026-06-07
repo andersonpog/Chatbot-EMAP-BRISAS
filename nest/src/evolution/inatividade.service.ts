@@ -6,7 +6,6 @@ import { Atendimento } from '../atendimento/entities/atendimento.entity';
 import { EvolutionService } from './evolution.service';
 import { BotMessages } from '../../messages';
 
-const INSTANCE = process.env.EVOLUTION_INSTANCE || 'evolution';
 const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos
 
 @Injectable()
@@ -21,6 +20,7 @@ export class InatividadeService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async verificarInatividade() {
+    const INSTANCE = process.env.EVOLUTION_INSTANCE || 'botevolution';
     const limite = new Date(Date.now() - TIMEOUT_MS);
 
     const inativos = await this.atendimentoRepo.find({

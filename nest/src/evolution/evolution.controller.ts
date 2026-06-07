@@ -3,13 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { EvolutionService } from './evolution.service';
 import { Atendimento } from '../atendimento/entities/atendimento.entity';
+import { Mensagem } from '../atendimento/entities/mensagem.entity';
 import { BotMessages } from '../../messages';
 import { EvolutionGateway } from './evolution.gateway';
 import { ConfiguracoesService } from '../configuracoes/configuracoes.service';
 
 
 // Controle de estado simples em memória
-const estadosUsuarios = {}; 
+const estadosUsuarios = {};
 const estadoRetorno = {};
 
 @Controller('webhook')
@@ -18,6 +19,8 @@ export class EvolutionController {
     private readonly evolutionService: EvolutionService,
     @InjectRepository(Atendimento)
     private readonly atendimentoRepo: Repository<Atendimento>,
+    @InjectRepository(Mensagem)
+    private readonly mensagemRepo: Repository<Mensagem>,
     private readonly evolutionGateway: EvolutionGateway,
     private readonly configuracoesService: ConfiguracoesService,
   ) {}
@@ -38,13 +41,32 @@ export class EvolutionController {
       this.evolutionGateway.emitirNovaMensagem();
 
       const remoteJid = data.key.remoteJid;
-      if (data.key.fromMe || remoteJid.includes('@g.us')) return { status: 200 };
+      if (remoteJid.includes('@g.us')) return { status: 200 };
 
       const fromMe = data.key.fromMe;
       const nome = data.pushName || 'Usuário';
 
-      const textoRecebido = (data.message?.conversation || 
+      const textoRecebido = (data.message?.conversation ||
                             data.message?.extendedTextMessage?.text || "").trim();
+
+      // Salva mensagem no banco para relatórios (cliente E bot/atendente)
+      if (textoRecebido) {
+        try {
+          const ticketParaMensagem = await this.atendimentoRepo.findOne({
+            where: { remoteJid, status: In(['BOT', 'AGUARDANDO', 'EM_ATENDIMENTO']) },
+            order: { dataCriacao: 'DESC' },
+          });
+          await this.mensagemRepo.save({
+            atendimentoId: ticketParaMensagem?.id ?? null,
+            remoteJid,
+            fromMe,
+            conteudo: textoRecebido,
+            tipo: 'text',
+            remetente: fromMe ? null : nome,
+            dataEnvio: new Date(),
+          });
+        } catch (_) {}
+      }
 
       if (!textoRecebido || fromMe) return { status: 200 };
 

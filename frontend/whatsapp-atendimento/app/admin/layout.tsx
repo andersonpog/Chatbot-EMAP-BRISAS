@@ -3,10 +3,11 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 const navItems = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: "📊" },
-  { label: "Usuários", href: "/admin/usuarios", icon: "👥" },
-  { label: "Atendimento", href: "/atendimento", icon: "💬" },
-  { label: "Configurações", href: "/admin/config", icon: "⚙️" },
+  { label: "Dashboard",    href: "/admin/dashboard", icon: "📊" },
+  { label: "Usuários",     href: "/admin/usuarios",  icon: "👥" },
+  { label: "Atendimento",  href: "/atendimento",      icon: "💬" },
+  { label: "Relatórios",   href: "/admin/relatorio",  icon: "📋" },
+  { label: "Configurações",href: "/admin/config",     icon: "⚙️" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

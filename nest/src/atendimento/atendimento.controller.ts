@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe, Request, Post, Body } from '@nestjs/common';
+import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe, Request, Post, Body, Query } from '@nestjs/common';
 import { AtendimentoService } from './atendimento.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -55,5 +55,16 @@ async encaminhar(
     this.evolutionGateway.emitirNovaMensagem();
     return resultado;
 }
+
+  @Get('relatorio')
+  @ApiOperation({ summary: 'Gera relatório de atendimentos com conversas (somente ADMIN)' })
+  async getRelatorio(
+    @Query('dataInicio') dataInicio: string,
+    @Query('dataFim') dataFim: string,
+    @Query('numero') numero?: string,
+    @Query('atendenteId') atendenteId?: string,
+  ) {
+    return this.atendimentoService.gerarRelatorio({ dataInicio, dataFim, numero, atendenteId });
+  }
 
 }
