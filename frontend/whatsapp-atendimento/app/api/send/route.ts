@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { number, text } = await req.json();
+  const { number, text, remetente } = await req.json();
 
   try {
     const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
@@ -40,7 +40,11 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
 
     if (NESTJS_URL) {
-      await fetch(`${NESTJS_URL}/webhook/notify-message-sent`, { method: "POST" }).catch(() => {});
+      await fetch(`${NESTJS_URL}/webhook/notify-message-sent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number, text, remetente: remetente ?? null }),
+      }).catch(() => {});
     }
 
     return NextResponse.json(data);

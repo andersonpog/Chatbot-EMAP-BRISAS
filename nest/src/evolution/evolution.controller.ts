@@ -26,9 +26,45 @@ export class EvolutionController {
   ) {}
 
   @Post('notify-message-sent')
-  notifyMessageSent() {
+  async notifyMessageSent(@Body() body: any) {
     this.evolutionGateway.emitirNovaMensagem();
+    if (body?.number && body?.text) {
+      try {
+        const ticket = await this.atendimentoRepo.findOne({
+          where: { remoteJid: body.number },
+          order: { dataCriacao: 'DESC' },
+        });
+        await this.mensagemRepo.save({
+          atendimentoId: ticket?.id ?? null,
+          remoteJid: body.number,
+          fromMe: true,
+          conteudo: body.text,
+          tipo: 'text',
+          remetente: body.remetente ?? null,
+          dataEnvio: new Date(),
+        });
+      } catch (_) {}
+    }
     return { status: 200 };
+  }
+
+  private async botSend(instancia: string, jid: string, texto: string): Promise<void> {
+    await this.botSend(instancia, jid, texto);
+    try {
+      const ticket = await this.atendimentoRepo.findOne({
+        where: { remoteJid: jid, status: In(['BOT', 'EM_ATENDIMENTO', 'AGUARDANDO']) },
+        order: { dataCriacao: 'DESC' },
+      });
+      await this.mensagemRepo.save({
+        atendimentoId: ticket?.id ?? null,
+        remoteJid: jid,
+        fromMe: true,
+        conteudo: texto,
+        tipo: 'text',
+        remetente: 'Bot Ouvidoria',
+        dataEnvio: new Date(),
+      });
+    } catch (_) {}
   }
 
   @Post()
@@ -123,7 +159,7 @@ export class EvolutionController {
       try {
         // --- FLUXO INICIAL ---
         if (estadoAtual === 'INICIO') {
-          await this.evolutionService.enviarMensagem(
+          await this.botSend(
             instance, 
             remoteJid, 
             BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
@@ -134,7 +170,7 @@ export class EvolutionController {
         // --- PROCESSANDO MENU PRINCIPAL ---
         else if (estadoAtual === 'MENU_PRINCIPAL') {
           if (textoRecebido === '1') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.SUBMENU_VISITAS_PORTO
@@ -143,7 +179,7 @@ export class EvolutionController {
             estadoRetorno[remoteJid] = 'SUBMENU_VISITAS_PORTO'
           } 
           else if (textoRecebido === '2') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.SUBMENU_TRABALHE_CONOSCO
@@ -152,7 +188,7 @@ export class EvolutionController {
             estadoRetorno[remoteJid] = 'SUBMENU_TRABALHE_CONOSCO';
           } 
           else if (textoRecebido === '3') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.RESPOSTA_COMERCIAL
@@ -184,13 +220,13 @@ export class EvolutionController {
             }
 
             if (foraDoHorario) {
-              await this.evolutionService.enviarMensagem(
+              await this.botSend(
                 instance,
                 remoteJid,
                 config.mensagemForaHorario
               );
               // Reenvia o menu principal para o usuário continuar navegando
-              await this.evolutionService.enviarMensagem(
+              await this.botSend(
                 instance,
                 remoteJid,
                 BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
@@ -206,7 +242,7 @@ export class EvolutionController {
               status: 'AGUARDANDO',
             });
 
-             await this.evolutionService.enviarMensagem(
+             await this.botSend(
                instance, 
                remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.ANALISTA_OUVIDORIA)
@@ -215,7 +251,7 @@ export class EvolutionController {
             }
           }
           else if (textoRecebido === '0') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance,
               remoteJid,
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA
@@ -225,7 +261,7 @@ export class EvolutionController {
             if (ticketBot) await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
           } 
           else {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance,
               remoteJid,
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[estadoAtual]
@@ -236,7 +272,7 @@ export class EvolutionController {
         // --- SUBMENU VISITAS AO PORTO ---
         else if (estadoAtual === 'SUBMENU_VISITAS_PORTO') {
           if (textoRecebido === '1') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
@@ -244,7 +280,7 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
           } 
           else if (textoRecebido === '2') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.AGENDAR_VISITA_PORTO
@@ -252,7 +288,7 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'AGENDAR_VISITA';
           }
           else if (textoRecebido === '3') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.CANCELAR_VISITA_PORTO
@@ -260,7 +296,7 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'REAGENDAR_CANCELAR_VISITA';
           }
           else {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance,
               remoteJid,
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[estadoAtual]
@@ -271,7 +307,7 @@ export class EvolutionController {
         // --- SUBMENU TRABALHE CONOSCO ---
         else if (estadoAtual === 'SUBMENU_TRABALHE_CONOSCO') {
           if (textoRecebido === '1') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL
@@ -279,7 +315,7 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
           } 
           else if (textoRecebido === '2') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.TRABALHE_CONOSCO
@@ -287,7 +323,7 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'TRABALHE_CONOSCO_OPCAO';
           }
           else if (textoRecebido === '3') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.ESTAGIO_PORTO
@@ -295,7 +331,7 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'ESTAGIO_OPCAO';
           }
           else if (textoRecebido === '4') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.JOVEM_APRENDIZ_PORTO
@@ -303,7 +339,7 @@ export class EvolutionController {
             estadosUsuarios[remoteJid] = 'JOVEM_APRENDIZ_OPCAO';
           }
           else if (textoRecebido === '0') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA
@@ -311,7 +347,7 @@ export class EvolutionController {
             delete estadosUsuarios[remoteJid];
           }
           else {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance, 
               remoteJid, 
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[estadoAtual]
@@ -324,13 +360,13 @@ export class EvolutionController {
           if (textoRecebido === '1') {
             const retorno = estadoRetorno[remoteJid] || 'MENU_PRINCIPAL';
             estadosUsuarios[remoteJid] = retorno;
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance,
               remoteJid,
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages[retorno]
             );
           } else if (textoRecebido === '0') {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance,
               remoteJid,
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA
@@ -340,7 +376,7 @@ export class EvolutionController {
 
             if (ticketBot) await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
           } else {
-            await this.evolutionService.enviarMensagem(
+            await this.botSend(
               instance,
               remoteJid,
               BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.OPCAO_INVALIDA
@@ -352,14 +388,14 @@ export class EvolutionController {
 else if (estadoAtual === 'AGUARDANDO_SUB_OPCAO') {
   if (textoRecebido === '1') {
     estadosUsuarios[remoteJid] = 'MENU_PRINCIPAL';
-    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL);
+    await this.botSend(instance, remoteJid, BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.MENU_PRINCIPAL);
   } else if (textoRecebido === '0') {
-    await this.evolutionService.enviarMensagem(instance, remoteJid, BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA);
+    await this.botSend(instance, remoteJid, BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.DESPEDIDA);
     delete estadosUsuarios[remoteJid];
     delete estadoRetorno[remoteJid];
     if (ticketBot) await this.atendimentoRepo.update(ticketBot.id, { status: 'FINALIZADO' });
   } else {
-    await this.evolutionService.enviarMensagem(
+    await this.botSend(
       instance,
       remoteJid,
       BotMessages.BOT_MENSAGEM + '\n\n' + BotMessages.OPCAO_INVALIDA

@@ -367,7 +367,8 @@ export default function WaAtendimento() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         number: item.remoteJid,
-        text: texto
+        text: texto,
+        remetente: userName,
       }),
     });
 
@@ -417,6 +418,7 @@ export default function WaAtendimento() {
       body: JSON.stringify({
         number: item.remoteJid,
         text: formatAgentMessage("✅ Seu atendimento foi encerrado. Obrigado por entrar em contato com a EMAP! Qualquer dúvida, é só chamar novamente.", userName),
+        remetente: userName,
       }),
     });
     await fetch(`/api/atendimento/${item.id}`, {
@@ -461,7 +463,7 @@ export default function WaAtendimento() {
       const res = await fetch("/api/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: sel.id, text }),
+        body: JSON.stringify({ number: sel.id, text, remetente: userName }),
       });
       if (!res.ok) throw new Error(`Evolution: ${res.status}`);
       // Marca como enviado (duplo check)
@@ -540,7 +542,8 @@ export default function WaAtendimento() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           number: data.remoteJid,
-          text: texto
+          text: texto,
+          remetente: userName,
         }),
       });
 
