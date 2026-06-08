@@ -49,7 +49,7 @@ export class EvolutionController {
   }
 
   private async botSend(instancia: string, jid: string, texto: string): Promise<void> {
-    await this.botSend(instancia, jid, texto);
+    await this.evolutionService.enviarMensagem(instancia, jid, texto);
     try {
       const ticket = await this.atendimentoRepo.findOne({
         where: { remoteJid: jid, status: In(['BOT', 'EM_ATENDIMENTO', 'AGUARDANDO']) },
