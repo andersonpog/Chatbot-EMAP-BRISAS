@@ -1,0 +1,20 @@
+- relatórios
+
+- Remover o card "Com conversa" do relatório. Ou colocar pra ele indicar as conversas que estão "Em Atendimento".
+- Exportar para excel, csv, xml.
+
+- atendimentos (o que ainda falta fazer)
+
+
+- Arrumar a confirmação de leitura da mensagem. 
+- Retirar os ícones que não precisa e colocar pra funcionar os que são necessários. Por exemplo, a lupa que fica dentro das conversas. 
+- Resolver os ícones de imagem e áudio 
+- Verificar pq as conversas estão sumindo. 
+- Proibir voltar pra tela sem fazer login
+
+
+
+
+- equipes
+
+- Para o cliente, a primeira mensagem deve ser para selecionar o setor.
