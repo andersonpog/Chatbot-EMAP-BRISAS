@@ -205,7 +205,6 @@ export default function RelatorioPage() {
             { label: "Atendimentos", value: registros.length, color: "#128C7E" },
             { label: "Total de mensagens", value: totalMensagens, color: "#5B72E8" },
             { label: "Finalizados", value: registros.filter(r => r.status === 'FINALIZADO').length, color: "#25D366" },
-            { label: "Com conversa", value: registros.filter(r => r.mensagens.length > 0).length, color: "#f59e0b" },
           ].map(c => (
             <div key={c.label} style={{ backgroundColor: "#fff", borderRadius: 12, padding: "16px 24px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", display: "flex", alignItems: "center", gap: 12, minWidth: 160 }}>
               <div style={{ width: 8, height: 36, borderRadius: 4, backgroundColor: c.color }} />

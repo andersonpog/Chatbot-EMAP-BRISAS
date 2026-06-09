@@ -23,6 +23,6 @@ export class Mensagem {
   @Column({ type: 'varchar', nullable: true })
   remetente: string | null;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamptz' })
   dataEnvio: Date;
 }

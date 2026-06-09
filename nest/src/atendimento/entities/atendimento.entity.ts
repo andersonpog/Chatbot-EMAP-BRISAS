@@ -17,9 +17,9 @@ export class Atendimento {
   @Column({ nullable: true })
   atendenteId!: string;
 
-  @Column({ type: 'timestamp', nullable: true, default: null })
+  @Column({ type: 'timestamptz', nullable: true, default: null })
   ultimaMensagemEm: Date | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   dataCriacao!: Date;
 }

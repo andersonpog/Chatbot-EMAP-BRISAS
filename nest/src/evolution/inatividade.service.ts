@@ -40,11 +40,16 @@ export class InatividadeService {
           ticket.remoteJid,
           BotMessages.INATIVIDADE,
         );
+      } catch (err) {
+        this.logger.warn(`Mensagem de inatividade não enviada para ticket #${ticket.id}: ${err.message}`);
+      }
+
+      try {
         await this.atendimentoRepo.update(ticket.id, { status: 'FINALIZADO' });
         this.evolutionGateway.emitirNovaMensagem();
         this.logger.log(`Ticket #${ticket.id} (${ticket.nome}) finalizado por inatividade.`);
       } catch (err) {
-        this.logger.error(`Erro ao finalizar ticket #${ticket.id} por inatividade: ${err.message}`);
+        this.logger.error(`Erro ao finalizar ticket #${ticket.id}: ${err.message}`);
       }
     }
   }
