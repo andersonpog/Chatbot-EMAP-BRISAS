@@ -94,6 +94,106 @@ export default function RelatorioPage() {
   const toggleExpand = (id: number) =>
     setExpandido(prev => ({ ...prev, [id]: !prev[id] }));
 
+  const exportarCSV = () => {
+    const headers = ['ID', 'Atendente', 'Cliente', 'Número', 'Data de Criação', 'Status', 'Total de Mensagens'];
+    const rows = registros.map(r => [
+      r.id,
+      r.atendenteNome || '',
+      r.nome,
+      numLimpo(r.remoteJid),
+      fmt(r.dataCriacao),
+      r.status,
+      r.mensagens.length,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio-emap-${dataInicio}-a-${dataFim}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportarPDF = () => {
+    const style = `
+      <style>
+        @page { size: A4; margin: 1.5cm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #111; margin: 0; }
+        .cabecalho { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #128C7E; padding-bottom: 10px; margin-bottom: 14px; }
+        .cabecalho h1 { font-size: 16px; margin: 0; color: #128C7E; }
+        .cabecalho .sub { font-size: 10px; color: #555; margin-top: 2px; }
+        .resumo { display: flex; gap: 16px; margin-bottom: 14px; }
+        .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 14px; min-width: 100px; }
+        .card .val { font-size: 20px; font-weight: 700; color: #128C7E; }
+        .card .lbl { font-size: 9px; color: #667781; margin-top: 1px; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        thead tr { background: #128C7E; color: #fff; }
+        th { padding: 6px 8px; text-align: left; font-size: 10px; font-weight: 600; }
+        td { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+        tr:nth-child(even) td { background: #fafafa; }
+        .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 700; }
+        .conversa { margin-top: 5px; background: #f9f9f9; border-left: 3px solid #128C7E; padding: 5px 8px; border-radius: 0 4px 4px 0; page-break-inside: avoid; }
+        .msg { margin-bottom: 4px; line-height: 1.4; }
+        .hora { color: #8696a0; font-size: 9px; margin-right: 4px; }
+        .remetente { font-weight: 700; margin-right: 4px; }
+        .msg-bot .remetente { color: #128C7E; }
+        .msg-cliente .remetente { color: #667781; }
+        .rodape { margin-top: 20px; font-size: 9px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 8px; }
+      </style>`;
+
+    const finalizados = registros.filter(r => r.status === 'FINALIZADO').length;
+    const totalMsgs   = registros.reduce((acc, r) => acc + r.mensagens.length, 0);
+    const statusColors: Record<string, string> = {
+      FINALIZADO: '#25D366', EM_ATENDIMENTO: '#3b82f6', AGUARDANDO: '#f59e0b', BOT: '#8b5cf6',
+    };
+
+    const rows = registros.map(r => `
+      <tr>
+        <td style="color:#667781;font-weight:600">#${r.id}</td>
+        <td>${r.atendenteNome || '—'}</td>
+        <td><strong>${r.nome}</strong><br/><span style="color:#667781">${numFormatado(r.remoteJid)}</span></td>
+        <td style="white-space:nowrap">${fmt(r.dataCriacao)}</td>
+        <td><span class="badge" style="color:${statusColors[r.status]||'#888'};background:${(statusColors[r.status]||'#888')}20">${r.status}</span></td>
+        <td>
+          ${r.mensagens.length === 0
+            ? '<em style="color:#aaa">Sem mensagens</em>'
+            : `<div class="conversa">${r.mensagens.map(m => `
+                <div class="msg ${m.fromMe ? 'msg-bot' : 'msg-cliente'}">
+                  <span class="hora">${fmtHora(m.dataEnvio)}</span>
+                  <span class="remetente">${m.fromMe ? (m.remetente || 'Atendente/Bot') : (m.remetente || r.nome)}:</span>${m.conteudo}
+                </div>`).join('')}</div>`}
+        </td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+      <meta charset="UTF-8"><title>Relatório EMAP — ${dataInicio} a ${dataFim}</title>${style}
+    </head><body>
+      <div class="cabecalho">
+        <div>
+          <h1>Relatório de Atendimentos — EMAP Brisas</h1>
+          <div class="sub">Período: ${dataInicio} até ${dataFim} &nbsp;|&nbsp; Gerado em: ${new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</div>
+        </div>
+      </div>
+      <div class="resumo">
+        <div class="card"><div class="val">${registros.length}</div><div class="lbl">Atendimentos</div></div>
+        <div class="card"><div class="val">${totalMsgs}</div><div class="lbl">Total de mensagens</div></div>
+        <div class="card"><div class="val">${finalizados}</div><div class="lbl">Finalizados</div></div>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Atendente</th><th>Cliente / Número</th><th>Data</th><th>Status</th><th>Histórico</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="rodape">EMAP Brisas — Sistema de Atendimento WhatsApp</div>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  };
+
   const imprimir = () => {
     const style = `
       <style>
@@ -190,10 +290,20 @@ export default function RelatorioPage() {
             {loading ? "Buscando..." : "Gerar Relatório"}
           </button>
           {gerado && registros.length > 0 && (
-            <button onClick={imprimir}
-              style={{ padding: "8px 20px", backgroundColor: "#fff", color: "#128C7E", border: "1px solid #128C7E", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              🖨️ Imprimir
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={imprimir}
+                style={{ padding: "8px 16px", backgroundColor: "#fff", color: "#667781", border: "1px solid #ddd", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                🖨️ Imprimir
+              </button>
+              <button onClick={exportarPDF}
+                style={{ padding: "8px 16px", backgroundColor: "#fff", color: "#dc2626", border: "1px solid #dc2626", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                📄 Exportar PDF
+              </button>
+              <button onClick={exportarCSV}
+                style={{ padding: "8px 16px", backgroundColor: "#fff", color: "#2563eb", border: "1px solid #2563eb", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                📊 Exportar CSV
+              </button>
+            </div>
           )}
         </div>
       </div>
