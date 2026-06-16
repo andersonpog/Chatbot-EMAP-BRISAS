@@ -8,7 +8,8 @@ import { io } from "socket.io-client";
 
 type Status = "open" | "pending" | "resolved" | "bot";
 interface Contact { id: string; name: string; phone: string; lastMsg: string; time: string; unread: number; status: Status; tags?: string[] }
-interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean }
+interface MsgMedia { type: "image"; mimetype?: string; dataUrl?: string; thumbnailUrl?: string; fileName?: string }
+interface Msg { id: string; cid: string; text: string; time: string; from: "customer" | "agent"; sending?: boolean; media?: MsgMedia }
 interface FilaItem { id: number; remoteJid: string; nome: string; status: "BOT" | "AGUARDANDO" | "EM_ATENDIMENTO" | "FINALIZADO"; dataCriacao: string; atendenteId?: string | number | null; atendenteNome?: string }
 interface Toast { type: "success" | "error"; message: string }
 
@@ -26,7 +27,7 @@ interface EvoMsg {
   message?: {
     conversation?: string;
     extendedTextMessage?: { text: string };
-    imageMessage?: { caption?: string };
+    imageMessage?: { caption?: string; mimetype?: string; jpegThumbnail?: string; url?: string };
     audioMessage?: Record<string, unknown>;
     videoMessage?: Record<string, unknown>;
     documentMessage?: { title?: string };
@@ -47,6 +48,19 @@ function getMsgText(m: EvoMsg): string {
   if (msg.documentMessage) return msg.documentMessage.title || "[Documento]";
   if (msg.stickerMessage) return "[Sticker]";
   return "[mensagem]";
+}
+
+function getContactPreviewText(m: EvoMsg): string {
+  if (m.message?.imageMessage && !m.message.imageMessage.caption) return "Foto";
+  return getMsgText(m);
+}
+
+function getMsgMedia(m: EvoMsg): MsgMedia | undefined {
+  const image = m.message?.imageMessage;
+  if (!image) return undefined;
+  const mimetype = image.mimetype || "image/jpeg";
+  const thumbnailUrl = image.jpegThumbnail ? `data:${mimetype};base64,${image.jpegThumbnail}` : undefined;
+  return { type: "image", mimetype, thumbnailUrl };
 }
 
 function fmtTime(ts: number): string {
@@ -99,7 +113,7 @@ function buildContactsAndMsgs(records: EvoMsg[]): { contacts: Contact[]; msgs: R
       id: jid,
       name,
       phone: fmtPhone(jid),
-      lastMsg: getMsgText(last),
+      lastMsg: getContactPreviewText(last),
       time: fmtTime(last.messageTimestamp),
       unread: 0,
       status: "open",
@@ -111,6 +125,7 @@ function buildContactsAndMsgs(records: EvoMsg[]): { contacts: Contact[]; msgs: R
       text: getMsgText(m),
       time: fmtTime(m.messageTimestamp),
       from: m.key.fromMe ? "agent" : "customer",
+      media: getMsgMedia(m),
     }));
   }
 
@@ -156,20 +171,168 @@ const avColors = ["#25D366","#128C7E","#075E54","#34B7F1","#00A884","#5B72E8","#
 const Av:FC<{n:string;sz?:number}> = ({n,sz=40})=><div style={{width:sz,minWidth:sz,height:sz,borderRadius:"50%",backgroundColor:avColors[n.charCodeAt(0)%8],fontSize:sz*.38}} className="flex items-center justify-center text-white font-semibold">{n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()}</div>;
 const Tag:FC<{t:string}> = ({t})=><span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded" style={{color:"#00a884",backgroundColor:"#e7f7ef"}}>{t}</span>;
 
+function normalizeSearchText(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function highlightText(text: string, query: string, active: boolean) {
+  const cleanQuery = normalizeSearchText(query.trim());
+  if (!cleanQuery) return text;
+
+  const normalizedText = normalizeSearchText(text);
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = normalizedText.indexOf(cleanQuery);
+
+  while (matchIndex !== -1) {
+    if (matchIndex > cursor) parts.push(text.slice(cursor, matchIndex));
+    parts.push(
+      <mark
+        key={`${matchIndex}-${parts.length}`}
+        style={{
+          backgroundColor: active ? "#ffd166" : "#fff3a3",
+          color: "#111b21",
+          borderRadius: 3,
+          padding: "0 2px",
+        }}
+      >
+        {text.slice(matchIndex, matchIndex + cleanQuery.length)}
+      </mark>
+    );
+    cursor = matchIndex + cleanQuery.length;
+    matchIndex = normalizedText.indexOf(cleanQuery, cursor);
+  }
+
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts;
+}
+
 // Transforma URLs no texto em links clicáveis
-function renderTextWithLinks(text: string, isDark: boolean = false) {
+function renderTextWithLinks(text: string, isDark: boolean = false, searchQuery: string = "", activeMatch: boolean = false) {
   const urlRegex = /(https?:\/\/[^\s]+[^\s.,;:!?()])/g;
   return text.split(urlRegex).map((part, i) => {
     if (part.match(urlRegex)) {
       return (
         <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: isDark ? "#53bdeb" : "#027eb5", textDecoration: "underline" }}>
-          {part}
+          {highlightText(part, searchQuery, activeMatch)}
         </a>
       );
     }
-    return part;
+    return <span key={i}>{highlightText(part, searchQuery, activeMatch)}</span>;
   });
 }
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+const ImageMessage: FC<{ msg: Msg; isDark: boolean }> = ({ msg, isDark }) => {
+  const [src, setSrc] = useState(msg.media?.dataUrl || msg.media?.thumbnailUrl || "");
+  const [loading, setLoading] = useState(Boolean(msg.media && !msg.media.dataUrl));
+  const [failed, setFailed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    if (!msg.media || msg.media.dataUrl) return;
+    let active = true;
+    setLoading(true);
+    setFailed(false);
+
+    fetch(`/api/messages/media?id=${encodeURIComponent(msg.id)}`)
+      .then(async r => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      })
+      .then(data => {
+        if (!active || !data?.dataUrl) return;
+        setSrc(data.dataUrl);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [msg.id, msg.media]);
+
+  useEffect(() => {
+    if (!previewOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [previewOpen]);
+
+  if (!msg.media) return null;
+
+  if (!src && failed) {
+    return (
+      <div className="flex items-center justify-center rounded-md border px-4 py-8 text-xs" style={{borderColor:isDark ? "#333" : "#e9edef",color:isDark ? "#aaa" : "#667781"}}>
+        Imagem indisponível
+      </div>
+    );
+  }
+
+  const alt = msg.text && msg.text !== "[Imagem]" ? msg.text : "Imagem da conversa";
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => src && setPreviewOpen(true)}
+        disabled={!src}
+        className="block overflow-hidden rounded-md border-none p-0 text-left disabled:cursor-default"
+        style={{maxWidth:320,backgroundColor:isDark ? "#111" : "#f0f2f5",cursor:src ? "zoom-in" : "default"}}
+      >
+        {src ? (
+          <img src={src} alt={alt} className="block h-auto w-full object-contain" style={{maxHeight:360}} />
+        ) : (
+          <div className="flex items-center justify-center px-4 py-10 text-xs" style={{color:isDark ? "#aaa" : "#667781"}}>
+            {loading ? "Carregando imagem..." : "Imagem"}
+          </div>
+        )}
+      </button>
+
+      {previewOpen && src && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-5 py-6"
+          style={{backgroundColor:"rgba(0,0,0,.86)"}}
+          onClick={() => setPreviewOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(false)}
+            className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full border-none text-2xl leading-none text-white"
+            style={{backgroundColor:"rgba(255,255,255,.14)",cursor:"pointer"}}
+            aria-label="Fechar imagem"
+          >
+            x
+          </button>
+          <img
+            src={src}
+            alt={alt}
+            className="block object-contain"
+            style={{maxWidth:"min(96vw, 1200px)",maxHeight:"90vh"}}
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
+  );
+};
 
 export default function WaAtendimento() {
   const router = useRouter();
@@ -188,10 +351,16 @@ export default function WaAtendimento() {
   const ref = useRef<HTMLDivElement>(null);
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const encaminharMenuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const prevMsgCountRef = useRef<number>(0);
   const prevSelIdRef = useRef<string | null>(null);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [encaminharMenuOpen, setEncaminharMenuOpen] = useState(false);
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatSearch, setChatSearch] = useState("");
+  const [chatSearchIndex, setChatSearchIndex] = useState(0);
   const [toast, setToast] = useState<Toast | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -427,6 +596,14 @@ export default function WaAtendimento() {
     return st !== null && st === tab && (c.name.toLowerCase().includes(q.toLowerCase())||c.phone.includes(q));
   });
   const cnt = (s:Status) => contacts.filter(c => statusDoContato(c.id) === s).length;
+  const chatMessages = sel ? (msgs[sel.id] || []) : [];
+  const chatSearchTerm = chatSearch.trim();
+  const chatSearchMatches = chatSearchTerm
+    ? chatMessages.filter(m => normalizeSearchText(m.text).includes(normalizeSearchText(chatSearchTerm)))
+    : [];
+  const currentSearchIndex = chatSearchMatches.length ? Math.min(chatSearchIndex, chatSearchMatches.length - 1) : 0;
+  const activeSearchMsgId = chatSearchMatches[currentSearchIndex]?.id ?? null;
+
   useEffect(() => {
     if (!sel) return;
     const currentCount = (msgs[sel.id] || []).length;
@@ -438,6 +615,27 @@ export default function WaAtendimento() {
     prevMsgCountRef.current = currentCount;
     prevSelIdRef.current = sel.id;
   }, [sel, msgs]);
+
+  useEffect(() => {
+    if (!chatSearchOpen) return;
+    searchInputRef.current?.focus();
+  }, [chatSearchOpen]);
+
+  useEffect(() => {
+    if (!activeSearchMsgId || !chatSearchOpen) return;
+    messageRefs.current[activeSearchMsgId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [activeSearchMsgId, chatSearchOpen]);
+
+  const goToChatSearchMatch = (direction: 1 | -1) => {
+    if (chatSearchMatches.length === 0) return;
+    setChatSearchIndex((current) => (Math.min(current, chatSearchMatches.length - 1) + direction + chatSearchMatches.length) % chatSearchMatches.length);
+  };
+
+  const resetChatSearch = () => {
+    setChatSearch("");
+    setChatSearchIndex(0);
+    setChatSearchOpen(false);
+  };
 
   const send = async () => {
     if (!inp.trim() || !sel || statusDoContato(sel.id) !== "open") return;
@@ -467,6 +665,65 @@ export default function WaAtendimento() {
       // Marca a mensagem com erro removendo o flag e adicionando indicação visual
       setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
       alert("Erro ao enviar. Verifique se a Evolution está rodando.");
+    }
+  };
+
+  const sendImage = async (file: File) => {
+    if (!sel || statusDoContato(sel.id) !== "open") return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Selecione apenas arquivos de imagem.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      showToast("Imagem muito grande. Envie um arquivo de até 8 MB.");
+      return;
+    }
+
+    const caption = inp.trim() ? formatAgentMessage(inp, userName) : "";
+    const previewUrl = await readFileAsDataUrl(file);
+    const base64 = previewUrl.split(",")[1] || "";
+    const msgId = `m${Date.now()}`;
+    const time = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const newMsg: Msg = {
+      id: msgId,
+      cid: sel.id,
+      text: caption || "[Imagem]",
+      time,
+      from: "agent",
+      sending: true,
+      media: {
+        type: "image",
+        mimetype: file.type,
+        dataUrl: previewUrl,
+        fileName: file.name || "imagem.jpg",
+      },
+    };
+
+    setMsgs(p => ({ ...p, [sel.id]: [...(p[sel.id] || []), newMsg] }));
+    setContacts(p => p.map(c => c.id === sel.id ? { ...c, lastMsg: caption || "Foto", time } : c));
+    setInp("");
+
+    try {
+      const res = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          number: sel.id,
+          text: caption,
+          remetente: userName,
+          media: {
+            base64,
+            mimetype: file.type,
+            fileName: file.name || "imagem.jpg",
+          },
+        }),
+      });
+      if (!res.ok) throw new Error(`Evolution: ${res.status}`);
+      setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
+    } catch (e) {
+      console.error("Falha no envio da imagem:", e);
+      setMsgs(p => ({ ...p, [sel.id]: (p[sel.id] || []).map(m => m.id === msgId ? { ...m, sending: false } : m) }));
+      showToast("Erro ao enviar imagem. Verifique se a Evolution está rodando.");
     }
   };
 
@@ -669,7 +926,7 @@ export default function WaAtendimento() {
           {error&&<p className="text-center text-[12px] p-4 mx-3 rounded-lg bg-red-50 text-red-500">{error}</p>}
           {!loading&&!error&&list.length===0&&<p className="text-center text-[13px] p-6" style={{color: isDarkMode ? "#aaa" : "#8696a0"}}>Nenhum ticket</p>}
           {list.map(c=>(
-            <button key={c.id} onClick={()=>setSelId(c.id)} className="w-full flex items-start gap-3 px-4 py-3 border-none text-left cursor-pointer" style={{fontFamily:"inherit",backgroundColor:sel?.id===c.id?(isDarkMode?"#2a2a2a":"#f0f2f5"):"transparent",borderBottom:`1px solid ${isDarkMode?"#333":"#f0f2f5"}`}}>
+            <button key={c.id} onClick={()=>{ resetChatSearch(); setSelId(c.id); }} className="w-full flex items-start gap-3 px-4 py-3 border-none text-left cursor-pointer" style={{fontFamily:"inherit",backgroundColor:sel?.id===c.id?(isDarkMode?"#2a2a2a":"#f0f2f5"):"transparent",borderBottom:`1px solid ${isDarkMode?"#333":"#f0f2f5"}`}}>
               <Av n={c.name} sz={46}/>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center mb-0.5"><span className="font-semibold text-sm" style={{color: isDarkMode ? "#fff" : "#111b21"}}>{c.name}</span><span className="text-[11px]" style={{color: isDarkMode ? "#aaa" : "#667781"}}>{c.time}</span></div>
@@ -801,7 +1058,11 @@ export default function WaAtendimento() {
 
 
               <B cls="p-2" ch={<Ico.Phone c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
-              <B cls="p-2" ch={<Ico.Search c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
+              <B
+                cls={`p-2 rounded-full ${chatSearchOpen ? (isDarkMode ? "bg-[#333]" : "bg-[#e2e8ec]") : ""}`}
+                onClick={() => setChatSearchOpen(open => !open)}
+                ch={<Ico.Search c={chatSearchOpen ? "#00a884" : (isDarkMode ? "#aaa" : "#54656f")}/>}
+              />
               <div ref={chatMenuRef} className="relative">
                 <B
                   cls={`p-2 rounded-full ${isDarkMode ? "hover:bg-[#333]" : "hover:bg-[#e2e8ec]"}`}
@@ -817,6 +1078,7 @@ export default function WaAtendimento() {
                       onClick={() => {
                         setChatMenuOpen(false);
                         setInp("");
+                        resetChatSearch();
                         setSelId(null);
                       }}
                       className={`w-full px-5 py-3 text-left text-sm border-none bg-transparent cursor-pointer ${isDarkMode ? "hover:bg-[#333]" : "hover:bg-[#f0f2f5]"}`}
@@ -829,11 +1091,69 @@ export default function WaAtendimento() {
               </div>
             </div>
           </div>
+          {chatSearchOpen && (
+            <div className="flex items-center gap-2 px-4 py-2" style={{backgroundColor: isDarkMode ? "#111" : "#fff",borderBottom:`1px solid ${isDarkMode ? "#333" : "#e2e8ec"}`}}>
+              <div className="flex-1 flex items-center gap-2 rounded-lg px-3 py-1.5 border" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderColor: isDarkMode ? "#333" : "#e9edef"}}>
+                <Ico.Search s={16} c={isDarkMode ? "#aaa" : "#54656f"}/>
+                <input
+                  ref={searchInputRef}
+                  value={chatSearch}
+                  onChange={e=>{
+                    setChatSearch(e.target.value);
+                    setChatSearchIndex(0);
+                  }}
+                  onKeyDown={e=>{
+                    if (e.key === "Enter") goToChatSearchMatch(e.shiftKey ? -1 : 1);
+                    if (e.key === "Escape") {
+                      setChatSearch("");
+                      setChatSearchOpen(false);
+                    }
+                  }}
+                  placeholder="Buscar palavra nesta conversa..."
+                  className="flex-1 bg-transparent border-none outline-none text-[13px]"
+                  style={{color: isDarkMode ? "#fff" : "#3b4a54"}}
+                />
+              </div>
+              <span className="text-xs min-w-[52px] text-center" style={{color: isDarkMode ? "#aaa" : "#667781"}}>
+                {chatSearchTerm ? `${chatSearchMatches.length ? currentSearchIndex + 1 : 0}/${chatSearchMatches.length}` : "0/0"}
+              </span>
+              <button
+                onClick={()=>goToChatSearchMatch(-1)}
+                disabled={chatSearchMatches.length === 0}
+                className="w-8 h-8 rounded-md border bg-transparent cursor-pointer disabled:opacity-40"
+                style={{borderColor: isDarkMode ? "#333" : "#e9edef",color: isDarkMode ? "#aaa" : "#54656f"}}
+              >
+                &lt;
+              </button>
+              <button
+                onClick={()=>goToChatSearchMatch(1)}
+                disabled={chatSearchMatches.length === 0}
+                className="w-8 h-8 rounded-md border bg-transparent cursor-pointer disabled:opacity-40"
+                style={{borderColor: isDarkMode ? "#333" : "#e9edef",color: isDarkMode ? "#aaa" : "#54656f"}}
+              >
+                &gt;
+              </button>
+              <button
+                onClick={() => {
+                  resetChatSearch();
+                }}
+                className="w-8 h-8 rounded-md border bg-transparent cursor-pointer text-xs font-semibold"
+                style={{borderColor: isDarkMode ? "#333" : "#e9edef",color: isDarkMode ? "#aaa" : "#54656f"}}
+              >
+                X
+              </button>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto px-[60px] py-4"><div className="max-w-[780px] mx-auto flex flex-col gap-1">
-            {(msgs[sel.id]||[]).map(m=>(
-              <div key={m.id} className="flex w-full" style={{justifyContent:m.from==="agent"?"flex-end":"flex-start"}}>
-                <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?(isDarkMode ? "#005c4b" : "#d9fdd3"):(isDarkMode ? "#202c33" : "#fff"),borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:"0 1px .5px rgba(0,0,0,.15)"}}>
-                  <span className="text-sm whitespace-pre-wrap" style={{color: isDarkMode ? "#fff" : "#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>{renderTextWithLinks(m.text, isDarkMode)}</span>
+            {chatMessages.map(m=>(
+              <div key={m.id} ref={el => { messageRefs.current[m.id] = el; }} className="flex w-full" style={{justifyContent:m.from==="agent"?"flex-end":"flex-start"}}>
+                <div className="max-w-[65%] px-2.5 py-1.5" style={{backgroundColor:m.from==="agent"?(isDarkMode ? "#005c4b" : "#d9fdd3"):(isDarkMode ? "#202c33" : "#fff"),borderRadius:12,borderTopRightRadius:m.from==="agent"?4:12,borderTopLeftRadius:m.from==="agent"?12:4,boxShadow:activeSearchMsgId === m.id ? "0 0 0 2px #00a884,0 1px .5px rgba(0,0,0,.15)" : "0 1px .5px rgba(0,0,0,.15)"}}>
+                  {m.media?.type === "image" && <ImageMessage msg={m} isDark={isDarkMode}/>}
+                  {(!m.media || (m.text && m.text !== "[Imagem]")) && (
+                    <span className="text-sm whitespace-pre-wrap" style={{display:m.media ? "block" : "inline",marginTop:m.media ? 6 : 0,color: isDarkMode ? "#fff" : "#111b21",lineHeight:"1.45",wordBreak:"break-word"}}>
+                      {renderTextWithLinks(m.text, isDarkMode, chatSearchTerm, activeSearchMsgId === m.id)}
+                    </span>
+                  )}
                   <span className="flex items-center justify-end text-[11px] mt-0.5 ml-2 float-right" style={{color: isDarkMode ? "#aaa" : "#667781"}}>{m.time}{m.from==="agent"&&(m.sending ? <Ico.Clock c={isDarkMode?"#aaa":"#8696a0"} s={12}/> : <Ico.DblChk/>)}</span>
                 </div>
               </div>
@@ -854,7 +1174,18 @@ export default function WaAtendimento() {
             <div className="px-4 py-2" style={{backgroundColor: isDarkMode ? "#1e1e1e" : "#f0f2f5",borderTop:`1px solid ${isDarkMode ? "#333" : "#e2e8ec"}`}}>
               <div className="flex items-center gap-2 rounded-lg px-2 py-1" style={{backgroundColor: isDarkMode ? "#2a2a2a" : "#fff"}}>
                 <B cls="p-1.5" ch={<Ico.Emoji c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
-                <B cls="p-1.5" ch={<Ico.Clip c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e=>{
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) sendImage(file);
+                  }}
+                />
+                <B cls="p-1.5" onClick={()=>imageInputRef.current?.click()} ch={<Ico.Clip c={isDarkMode ? "#aaa" : "#54656f"}/>}/>
                 <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Digite aqui..." className="flex-1 bg-transparent border-none outline-none text-sm py-2" style={{color: isDarkMode ? "#fff" : "#3b4a54"}}/>
                 {inp.trim()?<B onClick={send} cls="p-1.5" ch={<Ico.Send/>}/>:<B cls="p-1.5" ch={<Ico.Mic c={isDarkMode ? "#aaa" : "#54656f"}/>}/>}
               </div>

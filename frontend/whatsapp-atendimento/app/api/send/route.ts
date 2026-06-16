@@ -13,23 +13,45 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { number, text, remetente } = await req.json();
+  const { number, text, remetente, media } = await req.json();
 
   try {
-    const res = await fetch(`${EVO_URL}/message/sendText/${EVO_INSTANCE}`, {
+    const isMedia = media?.base64 && media?.mimetype;
+    const endpoint = isMedia
+      ? `${EVO_URL}/message/sendMedia/${EVO_INSTANCE}`
+      : `${EVO_URL}/message/sendText/${EVO_INSTANCE}`;
+    const payload = isMedia
+      ? {
+          number,
+          mediatype: "image",
+          mimetype: media.mimetype,
+          caption: text || "",
+          media: media.base64,
+          fileName: media.fileName || "imagem.jpg",
+          delay: 1200,
+          linkPreview: false,
+          options: {
+            presence: "composing",
+            checkContact: false,
+            forceSend: true,
+          },
+        }
+      : {
+          number,
+          text,
+          delay: 1200,
+          linkPreview: false,
+          options: {
+            presence: "composing",
+            checkContact: false,
+            forceSend: true,
+          },
+        };
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: EVO_KEY },
-      body: JSON.stringify({
-        number,
-        text,
-        delay: 1200,
-        linkPreview: false,
-        options: {
-          presence: "composing",
-          checkContact: false,
-          forceSend: true,
-        },
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
