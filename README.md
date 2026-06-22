@@ -272,6 +272,59 @@ Gerenciamento completo de funcionários do sistema.
 
 ---
 
+#### Relatórios (`/admin/relatorio`)
+
+Acessível apenas para usuários com perfil **ADMIN**. Gera o histórico de atendimentos e conversas do WhatsApp para fins de auditoria, prestação de contas e acompanhamento de produtividade.
+
+**1. Filtros**
+
+| Filtro | Obrigatório | Descrição |
+| :--- | :--- | :--- |
+| Data início / Data fim | Sim | Intervalo de `dataCriacao` do atendimento (`00:00:00` até `23:59:59` do dia selecionado) |
+| Número WhatsApp | Não | Busca parcial pelo `remoteJid` (apenas dígitos) |
+| Atendente | Não | Filtra por atendente específico ou pelo "🤖 Bot Ouvidoria" (atendimentos não transferidos para humano) |
+
+Clicar em **Gerar Relatório** consulta `GET /atendimento/relatorio` (proxy via `app/api/relatorio/route.ts`, autenticado por JWT em cookie).
+
+**2. Cards de resumo**
+
+Exibidos após gerar o relatório, calculados em cima do resultado retornado:
+
+| Card | Cálculo |
+| :--- | :--- |
+| Atendimentos | Total de registros retornados no período |
+| Total de mensagens | Soma de todas as mensagens (`mensagens.length`) de todos os atendimentos |
+| Finalizados | Atendimentos com `status = FINALIZADO` |
+
+**3. Tabela e histórico de conversa**
+
+Cada linha mostra ID, atendente responsável, cliente/número formatado, data de criação (convertida para `America/Sao_Paulo`) e status (com badge colorido). O botão **Ver** expande o histórico completo da conversa daquele atendimento — mensagens do cliente, do bot ("Bot Ouvidoria") e do atendente humano, cada uma com remetente e horário.
+
+As mensagens exibidas vêm da tabela `mensagens` no PostgreSQL, **não** da Evolution API diretamente. Ela é alimentada em dois pontos do backend:
+
+- `POST /webhook` — ao receber uma mensagem do cliente, salva `conteudo`, `fromMe = false` e `remetente = nome do contato`.
+- `POST /webhook/notify-message-sent` — chamado pelo frontend a cada envio (bot ou atendente), salva `fromMe = true` e `remetente` (`"Bot Ouvidoria"` ou nome do atendente).
+
+> ⚠️ **Limitação conhecida:** apenas mensagens de **texto** são persistidas nessa tabela. Imagens enviadas/recebidas no chat (suportadas na tela `/atendimento`) ainda não são gravadas em `mensagens` e por isso não aparecem no relatório, no PDF nem no CSV — fica como ponto de melhoria futura.
+
+**4. Exportação**
+
+Três opções ficam disponíveis ao lado de "Gerar Relatório" assim que houver resultados:
+
+| Botão | Formato | Comportamento |
+| :--- | :--- | :--- |
+| 🖨️ Imprimir | Impressão direta | Abre o diálogo de impressão do navegador com tabela e conversas formatadas |
+| 📄 Exportar PDF | PDF | Abre uma janela com layout A4 (cards de resumo + tabela + histórico de conversas) e aciona a impressão; o usuário escolhe "Salvar como PDF" |
+| 📊 Exportar CSV | CSV | Faz download direto de `relatorio-emap-<dataInicio>-a-<dataFim>.csv` (UTF-8 com BOM, compatível com Excel/LibreOffice), uma linha por atendimento: ID, Atendente, Cliente, Número, Data de Criação, Status, Total de Mensagens |
+
+Nenhuma das exportações depende de bibliotecas externas — usam APIs nativas do navegador (`window.print()` e `Blob`/`URL.createObjectURL`).
+
+**5. Fuso horário**
+
+`dataCriacao`, `ultimaMensagemEm` e `dataEnvio` são colunas `timestamptz` no PostgreSQL (armazenadas em UTC). O frontend converte para `America/Sao_Paulo` na exibição (`toLocaleString`/`toLocaleTimeString` com `timeZone`), garantindo que a data do atendimento e o horário das mensagens fiquem sempre consistentes entre si.
+
+---
+
 ### Tela de Atendimento (`/atendimento`)
 
 Interface principal de atendimento ao cliente via WhatsApp.
@@ -337,6 +390,7 @@ Administradores e Observadores acessam a tela de atendimento em modo somente lei
 | `PATCH` | `/atendimento/finalizar/:id` | `:id` | Muda status para `FINALIZADO`, libera o robô | **Sim** |
 | `GET` | `/atendimento/atendentes/online `| — | Lista atendentes disponíveis para assumir atendimento | **Sim** |
 | `POST`| `/atendimento/encaminhar ` | — |Encaminha um atendimento para um atendente específico | **Sim** | 
+| `GET` | `/atendimento/relatorio` | `dataInicio`, `dataFim`, `numero?`, `atendenteId?` (query) | Gera relatório de atendimentos com histórico de conversas no período (somente ADMIN) | **Sim** |
 
 
 ---
@@ -367,6 +421,7 @@ Administradores e Observadores acessam a tela de atendimento em modo somente lei
 | :--- | :--- |
 | `Funcionarios` | Usuários do sistema (atendentes, observadores e admins) |
 | `atendimentos` | Fila de atendimento humano |
+| `mensagens` | Histórico de mensagens de texto trocadas em cada atendimento (usado no relatório) |
 | `configuracoes` | Horários de funcionamento e mensagem automática de fora do expediente |
 
 ### Estrutura — `Funcionarios`
@@ -391,8 +446,22 @@ Administradores e Observadores acessam a tela de atendimento em modo somente lei
 | `remoteJid` | varchar | ID do WhatsApp do cliente |
 | `nome` | varchar | Nome do cliente |
 | `status` | varchar | `BOT`, `AGUARDANDO`, `EM_ATENDIMENTO` ou `FINALIZADO` |
-| `dataCriacao` | timestamp | Data de entrada na fila |
-| `atendenteId` | text | Identificador do atendente responsável pelo atendimento |
+| `dataCriacao` | timestamptz | Data de entrada na fila (UTC) |
+| `ultimaMensagemEm` | timestamptz | Data da última mensagem do cliente; usada pelo cron de inatividade (10 min) |
+| `atendenteId` | varchar | Identificador do atendente responsável pelo atendimento |
+
+### Estrutura — `mensagens`
+
+| Coluna | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `id` | integer | Identificador único |
+| `atendimentoId` | integer | Referência ao atendimento (`atendimentos.id`) |
+| `remoteJid` | varchar | ID do WhatsApp do cliente |
+| `fromMe` | boolean | `true` para mensagens do bot/atendente, `false` para mensagens do cliente |
+| `conteudo` | text | Texto da mensagem |
+| `tipo` | varchar | Tipo da mensagem (atualmente sempre `text`) |
+| `remetente` | varchar | Nome de quem enviou (cliente, "Bot Ouvidoria" ou nome do atendente) |
+| `dataEnvio` | timestamptz | Data/hora de envio (UTC) |
 
 
 ### Estrutura — `configuracoes`
