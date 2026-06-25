@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { messageContentTransformer } from '../../common/crypto/message-content.transformer';
 
 @Entity('mensagens')
 export class Mensagem {
@@ -14,7 +15,7 @@ export class Mensagem {
   @Column({ type: 'boolean', default: false })
   fromMe: boolean;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', transformer: messageContentTransformer })
   conteudo: string;
 
   @Column({ type: 'varchar', default: 'text' })

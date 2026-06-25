@@ -132,6 +132,7 @@ Crie o arquivo `.env` na pasta `nest/`:
 ```env
 DATABASE_URL=postgresql://postgres:PASSWORD@localhost:5432/chatbot_db?schema=public
 JWT_SECRET=sua-chave-secreta-forte-aqui
+MESSAGE_ENCRYPTION_KEY=gere-uma-chave-forte-para-criptografar-mensagens
 PORT=3001
 ```
 
@@ -139,6 +140,7 @@ PORT=3001
 > ```bash
 > node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 > ```
+> Use o mesmo comando para gerar o `MESSAGE_ENCRYPTION_KEY`. Guarde essa chave com segurança: sem ela, mensagens criptografadas não poderão ser descriptografadas.
 
 
 ## 🐘 Gerenciamento do Banco de Dados (Docker)
